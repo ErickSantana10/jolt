@@ -324,17 +324,30 @@ function setupScreenShareAndPermissions() {
     }
   });
 
-  // 6. Auto-Atualizador com 1 clique: baixa a nova versão do GitHub, substitui o executável e reinicia!
+  // 6. Auto-Atualizador com 1 clique (Zero EBUSY): baixa em pasta dedicada, substitui via script pós-fechamento se bloqueado e reinicia!
   ipcMain.handle('app:install-update', async (_event, { downloadUrl }) => {
     try {
       const targetUrl =
         downloadUrl ||
         'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe';
 
+      if (!fs.existsSync(PERSISTENT_DATA_DIR)) {
+        fs.mkdirSync(PERSISTENT_DATA_DIR, { recursive: true });
+      }
+
       const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
       const downloadsDir = app.getPath('downloads');
-      const finalExePath = portableExe || path.join(downloadsDir, 'Jolt-Windows.exe');
-      const tempDownloadPath = finalExePath + '.new';
+      const isTempScopedDir =
+        !portableExe ||
+        portableExe.toLowerCase().includes('scoped_dir') ||
+        portableExe.toLowerCase().includes('\\temp\\');
+
+      const finalExePath = !isTempScopedDir
+        ? portableExe
+        : path.join(downloadsDir, 'Jolt-Windows.exe');
+
+      // Sempre baixa para um arquivo único dentro de %APPDATA%\JoltDesktop para nunca dar conflito EBUSY no download
+      const tempDownloadPath = path.join(PERSISTENT_DATA_DIR, `Jolt-Update-${Date.now()}.exe`);
 
       await downloadFileWithProgress(targetUrl, tempDownloadPath, (progress) => {
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -349,37 +362,59 @@ function setupScreenShareAndPermissions() {
         } catch {}
       }
 
-      if (portableExe && fs.existsSync(portableExe)) {
-        const oldBackupPath = portableExe + '.old';
-        try {
-          if (fs.existsSync(oldBackupPath)) {
-            fs.unlinkSync(oldBackupPath);
-          }
-          // O Windows permite renomear o executável em execução e colocar o novo no lugar
-          fs.renameSync(portableExe, oldBackupPath);
-          fs.renameSync(tempDownloadPath, portableExe);
-        } catch {
-          // Fallback caso esteja bloqueado: salva em Downloads e executa de lá
-          const fallbackPath = path.join(downloadsDir, 'Jolt-Windows.exe');
-          fs.copyFileSync(tempDownloadPath, fallbackPath);
-          try {
-            fs.unlinkSync(tempDownloadPath);
-          } catch {}
-          spawn(fallbackPath, [], { detached: true, stdio: 'ignore' }).unref();
-          setTimeout(() => app.quit(), 400);
-          return { success: true };
-        }
-      } else {
+      // Tenta substituição direta renomeando o executável antigo primeiro (permitido pelo Windows mesmo em execução)
+      let replacedDirectly = false;
+      try {
         if (fs.existsSync(finalExePath)) {
+          const oldBackupPath = `${finalExePath}.old`;
           try {
-            fs.unlinkSync(finalExePath);
+            if (fs.existsSync(oldBackupPath)) {
+              fs.unlinkSync(oldBackupPath);
+            }
           } catch {}
+          fs.renameSync(finalExePath, oldBackupPath);
         }
-        fs.renameSync(tempDownloadPath, finalExePath);
+        fs.copyFileSync(tempDownloadPath, finalExePath);
+        try {
+          fs.unlinkSync(tempDownloadPath);
+        } catch {}
+        replacedDirectly = true;
+      } catch (err) {
+        console.warn('[Updater] Substituição direta bloqueada (usando script pós-saída):', err.message);
       }
 
-      spawn(finalExePath, [], { detached: true, stdio: 'ignore' }).unref();
-      setTimeout(() => app.quit(), 400);
+      if (replacedDirectly) {
+        spawn(finalExePath, [], { detached: true, stdio: 'ignore' }).unref();
+        setTimeout(() => app.quit(), 300);
+        return { success: true };
+      }
+
+      // Se o arquivo de destino estava EBUSY/bloqueado, cria um script .cmd invisível que aguarda o app fechar (2s),
+      // substitui o .exe sem bloqueio e já abre a versão nova automaticamente!
+      const batchPath = path.join(PERSISTENT_DATA_DIR, 'jolt-updater.cmd');
+      const batchScript = [
+        '@echo off',
+        'timeout /t 2 /nobreak >nul',
+        `del /F /Q "${finalExePath}.old" >nul 2>&1`,
+        `move /Y "${finalExePath}" "${finalExePath}.old" >nul 2>&1`,
+        `copy /Y "${tempDownloadPath}" "${finalExePath}" >nul 2>&1`,
+        'if %ERRORLEVEL% EQU 0 (',
+        `  start "" "${finalExePath}"`,
+        `  del /F /Q "${tempDownloadPath}" >nul 2>&1`,
+        ') else (',
+        `  start "" "${tempDownloadPath}"`,
+        ')',
+        `del /F /Q "${finalExePath}.old" >nul 2>&1`,
+      ].join('\r\n');
+
+      fs.writeFileSync(batchPath, batchScript, 'utf-8');
+      spawn('cmd.exe', ['/c', batchPath], {
+        detached: true,
+        windowsHide: true,
+        stdio: 'ignore',
+      }).unref();
+
+      setTimeout(() => app.quit(), 250);
       return { success: true };
     } catch (err) {
       console.error('[Updater] Erro ao atualizar aplicativo:', err);

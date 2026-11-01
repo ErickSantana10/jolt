@@ -1601,15 +1601,15 @@ export const App: React.FC = () => {
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Áudio de Transmissão de Tela corrigido (WASAPI Loopback nativo + player dedicado)</span>
+                <span>Login automático e salvamento permanente de senha no PC</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Configurações de Voz & Vídeo estilo Discord (seletor de Microfone e Fone + Teste de Mic)</span>
+                <span>Áudio de Transmissão de Tela corrigido (sem cancelamento de loopback + palco expandido)</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Modo Tela Cheia nas transmissões e participantes sempre alinhados em ordem fixa</span>
+                <span>Novo ícone inspirado no Jolteon e atualizador anti-bloqueio (Zero EBUSY)</span>
               </div>
             </div>
 

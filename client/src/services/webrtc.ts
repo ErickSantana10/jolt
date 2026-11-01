@@ -652,11 +652,17 @@ export class WebRTCManager {
       }
 
       try {
-        // No Electron, passamos `audio: shareAudio` (boolean) para que o setDisplayMediaRequestHandler
-        // conecte o loopback nativo do Windows sem rejeitar as constraints!
+        // IMPORTANTE: No Electron 45+, passar `audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }`
+        // diretamente em getDisplayMedia desativa o AEC/NoiseSuppression na criação da track de loopback (evitando que o som morra após 2s!)
         acquiredStream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
-          audio: shareAudio,
+          audio: shareAudio
+            ? {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+              }
+            : false,
         });
       } catch (err1) {
         console.warn('[WebRTC Electron] Tentativa com áudio falhou, tentando vídeo e capturando áudio em separado:', err1);

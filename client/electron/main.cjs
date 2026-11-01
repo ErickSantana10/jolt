@@ -63,8 +63,60 @@ function cleanupOldUpdateFiles() {
     if (portableExe && fs.existsSync(portableExe + '.old')) {
       fs.unlinkSync(portableExe + '.old');
     }
+    if (fs.existsSync(PERSISTENT_DATA_DIR)) {
+      const files = fs.readdirSync(PERSISTENT_DATA_DIR);
+      for (const f of files) {
+        if (f.startsWith('Jolt-Update-') && f.endsWith('.exe')) {
+          try {
+            fs.unlinkSync(path.join(PERSISTENT_DATA_DIR, f));
+          } catch {}
+        }
+      }
+    }
   } catch {
     // Ignora se ainda estiver sendo liberado pelo sistema
+  }
+}
+
+// Cria automaticamente o atalho "Jolt" na Área de Trabalho com o ícone do Jolteon
+function ensureDesktopShortcut(targetExeOverride) {
+  if (process.platform !== 'win32') return;
+  try {
+    const desktopDir = app.getPath('desktop');
+    const shortcutPath = path.join(desktopDir, 'Jolt.lnk');
+    const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
+    const downloadsExe = path.join(app.getPath('downloads'), 'Jolt-Windows.exe');
+
+    const isTempScoped =
+      !portableExe ||
+      portableExe.toLowerCase().includes('scoped_dir') ||
+      portableExe.toLowerCase().includes('\\temp\\');
+
+    const targetExe =
+      targetExeOverride ||
+      (!isTempScoped && portableExe && fs.existsSync(portableExe) ? portableExe : null) ||
+      (fs.existsSync(downloadsExe) ? downloadsExe : process.execPath);
+
+    const bundledIcon = fs.existsSync(path.join(__dirname, '../dist/icon.ico'))
+      ? path.join(__dirname, '../dist/icon.ico')
+      : path.join(__dirname, '../public/icon.ico');
+    const persistentIcon = path.join(PERSISTENT_DATA_DIR, 'jolt-icon.ico');
+
+    if (fs.existsSync(bundledIcon)) {
+      try {
+        fs.copyFileSync(bundledIcon, persistentIcon);
+      } catch {}
+    }
+
+    shell.writeShortcutLink(shortcutPath, {
+      target: targetExe,
+      cwd: path.dirname(targetExe),
+      description: 'Jolt — Voz, Vídeo & Transmissão 60 FPS',
+      icon: fs.existsSync(persistentIcon) ? persistentIcon : targetExe,
+      iconIndex: 0,
+    });
+  } catch (err) {
+    console.warn('[Electron] Aviso ao criar atalho na Área de Trabalho:', err);
   }
 }
 
@@ -362,8 +414,11 @@ function setupScreenShareAndPermissions() {
         } catch {}
       }
 
-      // Sempre usa um script PowerShell pós-fechamento para aguardar o encerramento total do .exe antigo,
-      // substituir o arquivo original no lugar sem NUNCA dar EBUSY e já abrir a versão nova!
+      // Atualiza também o atalho na Área de Trabalho apontando para o executável atualizado
+      ensureDesktopShortcut(finalExePath);
+
+      // Usa WMI (Win32_Process.Create) para criar o processo PowerShell fora da árvore/Job Object do wrapper NSIS portátil!
+      // Assim, quando o Jolt fecha, o Windows NÃO mata o script de atualização!
       const psScriptPath = path.join(PERSISTENT_DATA_DIR, 'jolt-replace-update.ps1');
       const escapedTemp = tempDownloadPath.replace(/'/g, "''");
       const escapedFinal = finalExePath.replace(/'/g, "''");
@@ -372,9 +427,9 @@ function setupScreenShareAndPermissions() {
         '$ErrorActionPreference = "SilentlyContinue"',
         `\$tempFile = '${escapedTemp}'`,
         `\$targetFile = '${escapedFinal}'`,
-        'Start-Sleep -Milliseconds 700',
-        'Stop-Process -Name "Jolt*" -Force -ErrorAction SilentlyContinue',
         'Start-Sleep -Milliseconds 600',
+        'Get-Process | Where-Object { $_.ProcessName -like "Jolt*" } | Stop-Process -Force -ErrorAction SilentlyContinue',
+        'Start-Sleep -Milliseconds 900',
         'for ($i = 0; $i -lt 35; $i++) {',
         '  try {',
         '    if (Test-Path "$targetFile.old") { Remove-Item -Path "$targetFile.old" -Force -ErrorAction SilentlyContinue }',
@@ -398,17 +453,20 @@ function setupScreenShareAndPermissions() {
       ].join('\r\n');
 
       fs.writeFileSync(psScriptPath, psScript, 'utf-8');
+      const escapedPsPath = psScriptPath.replace(/'/g, "''");
+      const wmiLauncherCmd = `Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "${escapedPsPath}"' }`;
+
       spawn(
         'powershell.exe',
-        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', psScriptPath],
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', wmiLauncherCmd],
         {
           detached: true,
           windowsHide: true,
           stdio: 'ignore',
         }
-      ).unref();
+      );
 
-      setTimeout(() => app.quit(), 250);
+      setTimeout(() => app.quit(), 900);
       return { success: true };
     } catch (err) {
       console.error('[Updater] Erro ao atualizar aplicativo:', err);
@@ -462,6 +520,7 @@ async function createWindow() {
 
 app.whenReady().then(async () => {
   cleanupOldUpdateFiles();
+  ensureDesktopShortcut();
   setupScreenShareAndPermissions();
   await createWindow();
 

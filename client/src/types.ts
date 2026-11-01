@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.9.0';
+export const APP_VERSION = '2.0.0';
 
 export type StreamQualityPreset = 'potato' | 'balanced' | 'gamer';
 
@@ -37,6 +37,9 @@ declare global {
       getSavedAuth?: () => Promise<SavedAuthData | null>;
       saveAuth?: (data: SavedAuthData) => Promise<{ success: boolean }>;
       clearSavedAuth?: () => Promise<{ success: boolean }>;
+      startProcessAudioCapture?: () => Promise<{ success: boolean; excludedPid?: string; error?: string }>;
+      stopProcessAudioCapture?: () => Promise<{ success: boolean }>;
+      onProcessAudioData?: (callback: (chunk: Uint8Array) => void) => () => void;
     };
   }
 }

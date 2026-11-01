@@ -14,4 +14,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSavedAuth: () => ipcRenderer.invoke('auth:get-saved'),
   saveAuth: (data) => ipcRenderer.invoke('auth:save', data),
   clearSavedAuth: () => ipcRenderer.invoke('auth:clear'),
+  startProcessAudioCapture: () => ipcRenderer.invoke('audio-capture:start'),
+  stopProcessAudioCapture: () => ipcRenderer.invoke('audio-capture:stop'),
+  onProcessAudioData: (callback) => {
+    const listener = (_event, chunk) => callback(chunk);
+    ipcRenderer.on('audio-capture:pcm', listener);
+    return () => ipcRenderer.removeListener('audio-capture:pcm', listener);
+  },
 });

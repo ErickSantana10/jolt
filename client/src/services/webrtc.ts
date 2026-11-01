@@ -37,6 +37,11 @@ export class WebRTCManager {
   private remoteSpeakingInterval: number | null = null;
   private lastRemoteSpeakingKey: string = '';
 
+  // Captura de áudio do sistema com exclusão nativa do Discord (VAD\Process_Loopback)
+  private screenAudioContext: AudioContext | null = null;
+  private screenAudioWorkletNode: AudioWorkletNode | null = null;
+  private screenAudioUnsubscribe: (() => void) | null = null;
+
   public onSpeakingChange?: (isSpeaking: boolean) => void;
   public onRemoteSpeakingChange?: (speakingPeerIds: string[]) => void;
   public onMicLevelChange?: (level: number) => void;
@@ -631,6 +636,146 @@ export class WebRTCManager {
   }
 
   /**
+   * Inicia captura nativa de áudio do Windows (48kHz Estéreo) EXCLUINDO o Discord (VAD\Process_Loopback)
+   */
+  private async startDiscordFreeAudioTrack(): Promise<MediaStreamTrack | null> {
+    this.stopDiscordFreeAudioTrack();
+
+    if (!window.electronAPI?.startProcessAudioCapture || !window.electronAPI?.onProcessAudioData) {
+      return null;
+    }
+
+    try {
+      const res = await window.electronAPI.startProcessAudioCapture();
+      if (!res?.success) {
+        console.warn('[WebRTC] Helper de áudio sem Discord não iniciou:', res?.error);
+        return null;
+      }
+
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioCtx({ sampleRate: 48000, latencyHint: 'interactive' });
+      this.screenAudioContext = ctx;
+
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {});
+      }
+
+      const workletCode = `
+        class JoltPcmProcessor extends AudioWorkletProcessor {
+          constructor() {
+            super();
+            this.maxFrames = 48000;
+            this.leftBuf = new Float32Array(this.maxFrames);
+            this.rightBuf = new Float32Array(this.maxFrames);
+            this.readIdx = 0;
+            this.writeIdx = 0;
+            this.available = 0;
+            this.port.onmessage = (e) => {
+              const bytes = e.data;
+              if (!bytes || !bytes.byteLength) return;
+              const int16 = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+              const frames = Math.floor(int16.length / 2);
+              if (this.available + frames > 4320) {
+                const drop = (this.available + frames) - 2400;
+                if (drop > 0 && drop <= this.available) {
+                  this.readIdx = (this.readIdx + drop) % this.maxFrames;
+                  this.available -= drop;
+                }
+              }
+              for (let i = 0; i < frames; i++) {
+                this.leftBuf[this.writeIdx] = int16[i * 2] / 32768.0;
+                this.rightBuf[this.writeIdx] = int16[i * 2 + 1] / 32768.0;
+                this.writeIdx = (this.writeIdx + 1) % this.maxFrames;
+              }
+              this.available = Math.min(this.maxFrames, this.available + frames);
+            };
+          }
+          process(_inputs, outputs) {
+            const out = outputs[0];
+            if (!out || out.length === 0) return true;
+            const outL = out[0];
+            const outR = out.length > 1 ? out[1] : null;
+            const len = outL.length;
+            for (let i = 0; i < len; i++) {
+              if (this.available > 0) {
+                outL[i] = this.leftBuf[this.readIdx];
+                if (outR) outR[i] = this.rightBuf[this.readIdx];
+                this.readIdx = (this.readIdx + 1) % this.maxFrames;
+                this.available--;
+              } else {
+                outL[i] = 0;
+                if (outR) outR[i] = 0;
+              }
+            }
+            return true;
+          }
+        }
+        registerProcessor('jolt-pcm-processor', JoltPcmProcessor);
+      `;
+
+      const blob = new Blob([workletCode], { type: 'application/javascript' });
+      const blobUrl = URL.createObjectURL(blob);
+      try {
+        await ctx.audioWorklet.addModule(blobUrl);
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+
+      const workletNode = new AudioWorkletNode(ctx, 'jolt-pcm-processor', {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [2],
+      });
+      this.screenAudioWorkletNode = workletNode;
+
+      const destNode = ctx.createMediaStreamDestination();
+      destNode.channelCount = 2;
+      workletNode.connect(destNode);
+
+      this.screenAudioUnsubscribe = window.electronAPI.onProcessAudioData((chunk) => {
+        if (this.screenAudioContext?.state === 'suspended') {
+          this.screenAudioContext.resume().catch(() => {});
+        }
+        workletNode.port.postMessage(chunk);
+      });
+
+      const track = destNode.stream.getAudioTracks()[0] || null;
+      if (track) {
+        track.enabled = true;
+      }
+      return track;
+    } catch (err) {
+      console.warn('[WebRTC] Erro ao iniciar captura de áudio sem Discord:', err);
+      this.stopDiscordFreeAudioTrack();
+      return null;
+    }
+  }
+
+  private stopDiscordFreeAudioTrack() {
+    if (this.screenAudioUnsubscribe) {
+      try {
+        this.screenAudioUnsubscribe();
+      } catch {}
+      this.screenAudioUnsubscribe = null;
+    }
+    if (this.screenAudioWorkletNode) {
+      try {
+        this.screenAudioWorkletNode.disconnect();
+      } catch {}
+      this.screenAudioWorkletNode = null;
+    }
+    if (this.screenAudioContext) {
+      try {
+        this.screenAudioContext.close().catch(() => {});
+      } catch {}
+      this.screenAudioContext = null;
+    }
+    if (window.electronAPI?.stopProcessAudioCapture) {
+      window.electronAPI.stopProcessAudioCapture().catch(() => {});
+    }
+  }
+
+  /**
    * Inicia o compartilhamento de tela com suporte completo a Áudio do Sistema (Desktop e Navegador)
    */
   public async startScreenShare(
@@ -647,16 +792,25 @@ export class WebRTCManager {
     let acquiredStream: MediaStream | null = null;
 
     if (window.electronAPI?.isElectron) {
+      // 1. Tenta iniciar a captura nativa do Windows que EXCLUI o Discord (VAD\Process_Loopback)
+      let discordFreeAudioTrack: MediaStreamTrack | null = null;
+      if (shareAudio) {
+        discordFreeAudioTrack = await this.startDiscordFreeAudioTrack();
+      }
+
+      const needFallbackSystemAudio = shareAudio && !discordFreeAudioTrack;
+
       if (sourceId) {
-        await window.electronAPI.selectDesktopSource({ sourceId, shareAudio });
+        await window.electronAPI.selectDesktopSource({
+          sourceId,
+          shareAudio: needFallbackSystemAudio,
+        });
       }
 
       try {
-        // IMPORTANTE: No Electron 45+, passar `audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }`
-        // diretamente em getDisplayMedia desativa o AEC/NoiseSuppression na criação da track de loopback (evitando que o som morra após 2s!)
         acquiredStream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
-          audio: shareAudio
+          audio: needFallbackSystemAudio
             ? {
                 echoCancellation: false,
                 noiseSuppression: false,
@@ -665,7 +819,7 @@ export class WebRTCManager {
             : false,
         });
       } catch (err1) {
-        console.warn('[WebRTC Electron] Tentativa com áudio falhou, tentando vídeo e capturando áudio em separado:', err1);
+        console.warn('[WebRTC Electron] Tentativa com getDisplayMedia falhou, tentando alternativa:', err1);
         try {
           await window.electronAPI.selectDesktopSource({ sourceId: sourceId || '', shareAudio: false });
           acquiredStream = await navigator.mediaDevices.getDisplayMedia({
@@ -687,14 +841,21 @@ export class WebRTCManager {
               } as any,
             });
           } else {
+            this.stopDiscordFreeAudioTrack();
             throw err2;
           }
         }
       }
 
-      // Se o usuário pediu para compartilhar áudio e por algum motivo a captura de janela veio sem track de áudio,
-      // captura explicitamente a track de loopback desktop do Windows e junta ao stream!
-      if (acquiredStream && shareAudio && acquiredStream.getAudioTracks().length === 0) {
+      // Anexa a track de áudio estéreo limpa (sem Discord!) ao stream de vídeo
+      if (acquiredStream && discordFreeAudioTrack) {
+        acquiredStream.getAudioTracks().forEach((oldTrack) => {
+          acquiredStream?.removeTrack(oldTrack);
+          oldTrack.stop();
+        });
+        discordFreeAudioTrack.enabled = true;
+        acquiredStream.addTrack(discordFreeAudioTrack);
+      } else if (acquiredStream && needFallbackSystemAudio && acquiredStream.getAudioTracks().length === 0) {
         try {
           const loopbackStream = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -842,6 +1003,8 @@ export class WebRTCManager {
   }
 
   public stopScreenShare() {
+    this.stopDiscordFreeAudioTrack();
+
     if (this.antiEchoInterval) {
       clearInterval(this.antiEchoInterval);
       this.antiEchoInterval = null;
@@ -931,6 +1094,8 @@ export class WebRTCManager {
   }
 
   public leaveAll() {
+    this.stopDiscordFreeAudioTrack();
+
     if (this.speakingInterval) {
       clearInterval(this.speakingInterval);
       this.speakingInterval = null;

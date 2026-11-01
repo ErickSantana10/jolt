@@ -55,6 +55,16 @@ let mainWindow = null;
 let selectedSourceId = null;
 let selectedShareAudio = true;
 let localServer = null;
+let audioCaptureProc = null;
+
+function stopProcessAudioCapture() {
+  if (audioCaptureProc) {
+    try {
+      audioCaptureProc.kill();
+    } catch {}
+    audioCaptureProc = null;
+  }
+}
 
 // Limpa arquivo .old deixado por atualização anterior do executável portátil
 function cleanupOldUpdateFiles() {
@@ -376,6 +386,114 @@ function setupScreenShareAndPermissions() {
     }
   });
 
+  // 5.2 Captura de Áudio do Sistema com Exclusão Nativa do Discord (VAD\Process_Loopback)
+  ipcMain.handle('audio-capture:start', async () => {
+    if (process.platform !== 'win32') {
+      return { success: false, error: 'Disponível apenas no Windows' };
+    }
+
+    stopProcessAudioCapture();
+
+    try {
+      if (!fs.existsSync(PERSISTENT_DATA_DIR)) {
+        fs.mkdirSync(PERSISTENT_DATA_DIR, { recursive: true });
+      }
+
+      const unpackedHelperPath = path.join(
+        __dirname.replace('app.asar', 'app.asar.unpacked'),
+        'jolt-audio-capture.exe'
+      );
+      const bundledHelperPath = fs.existsSync(unpackedHelperPath)
+        ? unpackedHelperPath
+        : path.join(__dirname, 'jolt-audio-capture.exe');
+      const runtimeHelperPath = path.join(PERSISTENT_DATA_DIR, 'jolt-audio-capture.exe');
+
+      if (!fs.existsSync(bundledHelperPath) && !fs.existsSync(runtimeHelperPath)) {
+        return { success: false, error: 'Helper jolt-audio-capture.exe não encontrado' };
+      }
+
+      // Extrai o helper do ASAR para pasta persistente para execução direta no Windows
+      if (fs.existsSync(bundledHelperPath)) {
+        try {
+          const helperBytes = fs.readFileSync(bundledHelperPath);
+          fs.writeFileSync(runtimeHelperPath, helperBytes);
+        } catch (copyErr) {
+          if (!fs.existsSync(runtimeHelperPath)) {
+            return { success: false, error: copyErr.message };
+          }
+        }
+      }
+
+      return await new Promise((resolve) => {
+        let resolved = false;
+        let remainder = Buffer.alloc(0);
+
+        const proc = spawn(runtimeHelperPath, ['--parent-pid', String(process.pid)], {
+          windowsHide: true,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+
+        audioCaptureProc = proc;
+
+        const finishResolve = (result) => {
+          if (!resolved) {
+            resolved = true;
+            resolve(result);
+          }
+        };
+
+        const readyTimeout = setTimeout(() => {
+          finishResolve({ success: false, error: 'Timeout ao inicializar captura de áudio sem Discord' });
+          stopProcessAudioCapture();
+        }, 3000);
+
+        proc.stderr.on('data', (chunk) => {
+          const text = chunk.toString('utf-8').trim();
+          if (text.includes('READY:')) {
+            clearTimeout(readyTimeout);
+            const excludedPid = text.split('READY:')[1]?.split(/\r?\n/)[0] || '';
+            finishResolve({ success: true, excludedPid });
+          } else if (text.includes('FAILED_INIT')) {
+            clearTimeout(readyTimeout);
+            finishResolve({ success: false, error: 'Falha ao ativar VAD\\Process_Loopback' });
+            stopProcessAudioCapture();
+          }
+        });
+
+        proc.stdout.on('data', (chunk) => {
+          if (!mainWindow || mainWindow.isDestroyed()) return;
+          const combined = remainder.length > 0 ? Buffer.concat([remainder, chunk]) : chunk;
+          const alignedLen = combined.length - (combined.length % 4); // 4 bytes por frame estéreo Int16
+          if (alignedLen > 0) {
+            const payload = combined.subarray(0, alignedLen);
+            mainWindow.webContents.send('audio-capture:pcm', payload);
+          }
+          remainder = alignedLen < combined.length ? combined.subarray(alignedLen) : Buffer.alloc(0);
+        });
+
+        proc.on('error', (err) => {
+          clearTimeout(readyTimeout);
+          finishResolve({ success: false, error: err.message });
+        });
+
+        proc.on('close', () => {
+          clearTimeout(readyTimeout);
+          if (audioCaptureProc === proc) {
+            audioCaptureProc = null;
+          }
+          finishResolve({ success: false, error: 'Processo encerrado' });
+        });
+      });
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('audio-capture:stop', async () => {
+    stopProcessAudioCapture();
+    return { success: true };
+  });
+
   // 6. Auto-Atualizador com 1 clique (Zero EBUSY): baixa em pasta dedicada, substitui via script pós-fechamento se bloqueado e reinicia!
   ipcMain.handle('app:install-update', async (_event, { downloadUrl }) => {
     try {
@@ -495,6 +613,7 @@ async function createWindow() {
       nodeIntegration: false,
       webSecurity: true,
       allowRunningInsecureContent: false,
+      backgroundThrottling: false,
     },
   });
 
@@ -532,6 +651,7 @@ app.whenReady().then(async () => {
 });
 
 app.on('window-all-closed', () => {
+  stopProcessAudioCapture();
   if (localServer) {
     try {
       localServer.close();

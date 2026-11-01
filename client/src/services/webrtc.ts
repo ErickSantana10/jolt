@@ -350,18 +350,16 @@ export class WebRTCManager {
           this.peerScreenStreams.delete(peerId);
           this.onRemoteScreenRemoved?.(peerId);
         };
-        event.track.onmute = () => {
-          if (remoteStream.getVideoTracks().every((t) => t.readyState === 'ended' || t.muted)) {
-            setTimeout(() => {
-              if (remoteStream.getVideoTracks().every((t) => t.readyState === 'ended' || t.muted)) {
-                this.peerScreenStreams.delete(peerId);
-                this.onRemoteScreenRemoved?.(peerId);
-              }
-            }, 900);
-          }
-        };
         event.track.onunmute = () => {
-          this.onRemoteStream?.(peerId, this.peerScreenStreams.get(peerId) || remoteStream, true);
+          const activeScreen = this.peerScreenStreams.get(peerId) || remoteStream;
+          this.onRemoteStream?.(peerId, activeScreen, true);
+        };
+      }
+
+      if (event.track.kind === 'audio' && isScreen) {
+        event.track.onunmute = () => {
+          const activeScreen = this.peerScreenStreams.get(peerId) || remoteStream;
+          this.onRemoteStream?.(peerId, activeScreen, true);
         };
       }
 
@@ -370,6 +368,9 @@ export class WebRTCManager {
         const nowHasVideo = e.track.kind === 'video' || remoteStream.getVideoTracks().length > 0;
         const streamIsScreen =
           nowHasVideo || this.peerMicStreamIds.get(peerId) !== remoteStream.id;
+        if (streamIsScreen) {
+          this.peerScreenStreams.set(peerId, remoteStream);
+        }
         this.onRemoteStream?.(peerId, remoteStream, streamIsScreen);
       };
 
@@ -609,19 +610,22 @@ export class WebRTCManager {
     const audioTracks = rawStream.getAudioTracks();
     for (const track of audioTracks) {
       track.enabled = true;
-      track
-        .applyConstraints({
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          // @ts-expect-error constraints especificas do Chromium para impedir que o AEC apague o som do sistema
-          googEchoCancellation: false,
-          googAutoGainControl: false,
-          googNoiseSuppression: false,
-          googHighpassFilter: false,
-        })
-        .catch(() => {});
+      if ('contentHint' in track) {
+        try {
+          (track as any).contentHint = 'music';
+        } catch {}
+      }
     }
+
+    // Mantém a track de áudio da tela sempre habilitada enquanto a transmissão estiver ativa
+    this.antiEchoInterval = window.setInterval(() => {
+      if (!this.screenStream) return;
+      for (const track of this.screenStream.getAudioTracks()) {
+        if (!track.enabled) {
+          track.enabled = true;
+        }
+      }
+    }, 1000);
 
     return rawStream;
   }

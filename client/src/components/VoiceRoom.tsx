@@ -295,105 +295,88 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
             focusedStream ? 'px-3 py-2 gap-2.5' : 'p-4 gap-4'
           }`}
         >
-          {/* MODO 1: TELA FOCADA / EXPANDIDA (Ocupa toda a área demarcada no palco) */}
-          {focusedStream && (
-            <div className="w-full h-full flex-1 flex flex-col items-center justify-between gap-2.5 min-h-0">
-              {focusedStream === 'local' && localScreenStream ? (
-                <ScreenShareCard
-                  stream={localScreenStream}
-                  title={`SUA TELA (${QUALITY_PRESETS[streamQuality].name.toUpperCase()})`}
-                  isLocal={true}
-                  muted={true}
-                  isFocused={true}
-                  onToggleFocus={() => setFocusedStream(null)}
-                  outputVolume={audioSettings.outputVolume}
-                  sinkId={audioSettings.outputDeviceId}
-                />
-              ) : (
-                (() => {
-                  const target = screenShares.find((s) => s.peerId === focusedStream);
-                  if (!target) return null;
-                  const peerUser = sortedUsersInRoom.find((u) => u.socketId === target.peerId);
-                  return (
+          {/* MODO UNIFICADO DE TRANSMISSÃO DE TELA (Nunca desmonta o player ao clicar em Expandir/Grade!) */}
+          {hasAnyScreenShare && (
+            <div
+              className={`w-full flex-1 flex flex-col items-center min-h-0 ${
+                focusedStream
+                  ? 'h-full justify-between gap-2.5'
+                  : 'max-w-6xl justify-center gap-4'
+              }`}
+            >
+              {/* Área principal de telas compartilhadas */}
+              <div
+                className={
+                  focusedStream
+                    ? 'w-full flex-1 flex flex-col items-center justify-center min-h-0'
+                    : `w-full grid gap-4 items-center justify-center ${
+                        totalScreensCount === 1 ? 'grid-cols-1 max-w-5xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'
+                      }`
+                }
+              >
+                {isScreenSharing && localScreenStream && (
+                  <div
+                    className={
+                      focusedStream && focusedStream !== 'local'
+                        ? 'hidden'
+                        : 'w-full h-full flex items-center justify-center min-h-0'
+                    }
+                  >
                     <ScreenShareCard
-                      stream={target.stream}
-                      updatedAt={target.updatedAt}
-                      title={`Tela de ${peerUser?.name || peerUser?.displayName || 'Participante'}`}
-                      isLocal={false}
-                      muted={isDeafened}
-                      isFocused={true}
-                      onToggleFocus={() => setFocusedStream(null)}
+                      key="local-screen"
+                      stream={localScreenStream}
+                      title={`SUA TELA (${QUALITY_PRESETS[streamQuality].name.toUpperCase()})`}
+                      isLocal={true}
+                      muted={true}
+                      isFocused={focusedStream === 'local'}
+                      onToggleFocus={() =>
+                        setFocusedStream((prev) => (prev === 'local' ? null : 'local'))
+                      }
                       outputVolume={audioSettings.outputVolume}
                       sinkId={audioSettings.outputDeviceId}
                     />
-                  );
-                })()
-              )}
-
-              {/* Faixa compacta de participantes abaixo da tela expandida */}
-              <div className="w-full max-w-6xl flex items-center justify-center gap-2.5 overflow-x-auto py-0.5 shrink-0">
-                {sortedUsersInRoom.map((user) => {
-                  const isMe = user.id === currentUser?.id;
-                  const speaking = isMe
-                    ? isSpeaking && !isMuted
-                    : remoteSpeakingPeers.includes(user.socketId) && !user.isMuted;
-                  return (
-                    <ParticipantCompactTile
-                      key={user.id}
-                      user={user}
-                      isMe={isMe}
-                      speaking={speaking}
-                      compact={true}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* MODO 2: PALCO COM TRANSMISSÃO DE TELA ATIVA (Transmissões em cima + Barra alinhada de participantes embaixo) */}
-          {!focusedStream && hasAnyScreenShare && (
-            <div className="w-full max-w-6xl flex-1 flex flex-col items-center justify-center gap-4 min-h-0">
-              {/* Área principal de telas compartilhadas */}
-              <div
-                className={`w-full grid gap-4 items-center justify-center ${
-                  totalScreensCount === 1 ? 'grid-cols-1 max-w-5xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'
-                }`}
-              >
-                {isScreenSharing && localScreenStream && (
-                  <ScreenShareCard
-                    stream={localScreenStream}
-                    title={`SUA TELA (${QUALITY_PRESETS[streamQuality].name.toUpperCase()})`}
-                    isLocal={true}
-                    muted={true}
-                    isFocused={false}
-                    onToggleFocus={() => setFocusedStream('local')}
-                    outputVolume={audioSettings.outputVolume}
-                    sinkId={audioSettings.outputDeviceId}
-                  />
+                  </div>
                 )}
 
                 {screenShares.map((share) => {
                   const peerUser = sortedUsersInRoom.find((u) => u.socketId === share.peerId);
+                  const isThisFocused = focusedStream === share.peerId;
+                  const isHiddenByOtherFocus = Boolean(focusedStream && !isThisFocused);
                   return (
-                    <ScreenShareCard
+                    <div
                       key={`${share.peerId}-screen`}
-                      stream={share.stream}
-                      updatedAt={share.updatedAt}
-                      title={`Tela de ${peerUser?.name || peerUser?.displayName || 'Participante'}`}
-                      isLocal={false}
-                      muted={isDeafened}
-                      isFocused={false}
-                      onToggleFocus={() => setFocusedStream(share.peerId)}
-                      outputVolume={audioSettings.outputVolume}
-                      sinkId={audioSettings.outputDeviceId}
-                    />
+                      className={
+                        isHiddenByOtherFocus
+                          ? 'hidden'
+                          : 'w-full h-full flex items-center justify-center min-h-0'
+                      }
+                    >
+                      <ScreenShareCard
+                        stream={share.stream}
+                        updatedAt={share.updatedAt}
+                        title={`Tela de ${peerUser?.name || peerUser?.displayName || 'Participante'}`}
+                        isLocal={false}
+                        muted={isDeafened}
+                        isFocused={isThisFocused}
+                        onToggleFocus={() =>
+                          setFocusedStream((prev) => (prev === share.peerId ? null : share.peerId))
+                        }
+                        outputVolume={audioSettings.outputVolume}
+                        sinkId={audioSettings.outputDeviceId}
+                      />
+                    </div>
                   );
                 })}
               </div>
 
               {/* Faixa simétrica e ordenada de participantes abaixo da transmissão */}
-              <div className="w-full max-w-5xl flex flex-wrap items-center justify-center gap-3.5 pt-1 shrink-0">
+              <div
+                className={
+                  focusedStream
+                    ? 'w-full max-w-6xl flex items-center justify-center gap-2.5 overflow-x-auto py-0.5 shrink-0'
+                    : 'w-full max-w-5xl flex flex-wrap items-center justify-center gap-3.5 pt-1 shrink-0'
+                }
+              >
                 {sortedUsersInRoom.map((user) => {
                   const isMe = user.id === currentUser?.id;
                   const speaking = isMe
@@ -406,6 +389,7 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                       user={user}
                       isMe={isMe}
                       speaking={speaking}
+                      compact={Boolean(focusedStream)}
                     />
                   );
                 })}
@@ -752,7 +736,6 @@ const ScreenShareCard: React.FC<{
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const lastAudioTrackIdsRef = useRef<string>('');
   const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
   const [streamVolume, setStreamVolume] = useState(100);
@@ -767,64 +750,78 @@ const ScreenShareCard: React.FC<{
   const effectiveMuted = isLocal || muted || localMuteStream || streamVolume === 0;
   const combinedVol = Math.min(1, Math.max(0, (outputVolume / 100) * (streamVolume / 100)));
 
+  // Reproduz vídeo e áudio diretamente no elemento <video> visível no palco!
+  // Isso impede que o Chromium suspenda elementos <audio> ocultos (0x0) após alguns segundos.
   useEffect(() => {
     const videoEl = videoRef.current;
     if (!videoEl) return;
-    if (videoEl.srcObject !== stream) {
-      videoEl.srcObject = stream;
-    }
-    videoEl.muted = true; // Mantém o vídeo mudo para o elemento <audio> nativo abaixo controlar o som sem duplicar
-    videoEl.play().catch(() => {});
-  }, [stream, updatedAt]);
 
-  useEffect(() => {
-    const audioEl = audioRef.current;
-    if (!audioEl || isLocal) return;
-
-    const audioTracks = stream.getAudioTracks();
-    if (audioTracks.length === 0) {
-      audioEl.srcObject = null;
-      lastAudioTrackIdsRef.current = '';
-      return;
-    }
-
-    audioTracks.forEach((t) => {
+    stream.getAudioTracks().forEach((t) => {
       t.enabled = true;
     });
 
-    // IMPORTANTE: Passa a instância NAtiva `stream` do WebRTC diretamente para `audioEl.srcObject`
-    // (criar um `new MediaStream()` sintético no Chromium faz o WebRtcAudioRenderer ficar mudo!)
-    if (audioEl.srcObject !== stream || lastAudioTrackIdsRef.current !== audioTrackIds) {
+    // Se uma nova track de áudio chegou no stream depois do vídeo, re-anexa o srcObject
+    // para que o WebMediaPlayerMS do Chromium inicialize o renderizador de áudio!
+    if (videoEl.srcObject !== stream || lastAudioTrackIdsRef.current !== audioTrackIds) {
       lastAudioTrackIdsRef.current = audioTrackIds;
-      audioEl.srcObject = stream;
+      videoEl.srcObject = null;
+      videoEl.srcObject = stream;
     }
 
-    audioEl.muted = effectiveMuted;
-    audioEl.volume = combinedVol;
+    videoEl.muted = effectiveMuted;
+    videoEl.volume = combinedVol;
 
-    if (sinkId && sinkId !== 'default' && 'setSinkId' in audioEl) {
-      (audioEl as any).setSinkId(sinkId).catch(() => {});
+    if (!isLocal && sinkId && sinkId !== 'default' && 'setSinkId' in videoEl) {
+      (videoEl as any).setSinkId(sinkId).catch(() => {});
     }
 
-    audioEl
+    videoEl
       .play()
       .then(() => {
         setNeedsUserAudioUnlock(false);
       })
       .catch(() => {
-        if (!effectiveMuted) {
+        if (!effectiveMuted && hasScreenAudio) {
+          // Caso o navegador exija gesto do usuário para tocar com som, inicia o vídeo mudo e exibe o botão de ativar som
+          videoEl.muted = true;
+          videoEl.play().catch(() => {});
           setNeedsUserAudioUnlock(true);
         }
       });
-  }, [stream, updatedAt, audioTrackIds, isLocal, effectiveMuted, combinedVol, sinkId]);
+  }, [stream, updatedAt, audioTrackIds, isLocal, effectiveMuted, combinedVol, sinkId, hasScreenAudio]);
+
+  // Watchdog contínuo para garantir que o áudio da transmissão nunca seja silenciado ou pausado pelo navegador
+  useEffect(() => {
+    if (isLocal || !hasScreenAudio) return;
+    const interval = window.setInterval(() => {
+      const videoEl = videoRef.current;
+      if (!videoEl) return;
+      stream.getAudioTracks().forEach((t) => {
+        if (!t.enabled) t.enabled = true;
+      });
+      if (!needsUserAudioUnlock) {
+        if (videoEl.muted !== effectiveMuted) {
+          videoEl.muted = effectiveMuted;
+        }
+        if (Math.abs(videoEl.volume - combinedVol) > 0.01) {
+          videoEl.volume = combinedVol;
+        }
+        if (videoEl.paused) {
+          videoEl.play().catch(() => {});
+        }
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isLocal, hasScreenAudio, stream, effectiveMuted, combinedVol, needsUserAudioUnlock]);
 
   const handleManualAudioUnlock = () => {
-    const audioEl = audioRef.current;
-    if (!audioEl) return;
-    audioEl.srcObject = stream;
-    audioEl.muted = effectiveMuted;
-    audioEl.volume = combinedVol;
-    audioEl
+    const videoEl = videoRef.current;
+    if (!videoEl) return;
+    videoEl.srcObject = null;
+    videoEl.srcObject = stream;
+    videoEl.muted = effectiveMuted;
+    videoEl.volume = combinedVol;
+    videoEl
       .play()
       .then(() => setNeedsUserAudioUnlock(false))
       .catch(() => {});
@@ -870,17 +867,9 @@ const ScreenShareCard: React.FC<{
         ref={videoRef}
         autoPlay
         playsInline
-        muted={true}
+        muted={effectiveMuted}
         className="w-full h-full object-contain bg-black"
       />
-      {!isLocal && (
-        <audio
-          ref={audioRef}
-          autoPlay
-          playsInline
-          className="w-0 h-0 opacity-0 pointer-events-none absolute"
-        />
-      )}
 
       {/* Botão de desbloqueio caso o navegador bloqueie o autoplay de áudio antes de um clique */}
       {!isLocal && needsUserAudioUnlock && hasScreenAudio && (

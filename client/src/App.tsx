@@ -358,7 +358,7 @@ export const App: React.FC = () => {
           if (item.isScreen && !peer.isScreenSharing) {
             const hasLiveVideo = item.stream
               .getVideoTracks()
-              .some((t) => t.readyState === 'live' && !t.muted);
+              .some((t) => t.readyState === 'live');
             return hasLiveVideo;
           }
           return true;
@@ -1380,39 +1380,49 @@ export const App: React.FC = () => {
 
         {/* Floating Main Stage */}
         <main className="flex-1 bg-[#100a1e]/85 backdrop-blur-xl border border-violet-500/15 rounded-3xl flex overflow-hidden shadow-2xl min-w-0">
-          {currentVoiceChannelId && activeVoiceChannel && voiceViewMode === 'stage' ? (
-            <VoiceRoom
-              channel={activeVoiceChannel}
-              currentUser={currentUser}
-              usersInRoom={usersInVoiceRoom}
-              isMuted={isMuted}
-              isDeafened={isDeafened}
-              isSpeaking={isSpeaking}
-              remoteSpeakingPeers={remoteSpeakingPeers}
-              isScreenSharing={isScreenSharing}
-              streamQuality={streamQuality}
-              localScreenStream={localScreenStream}
-              remoteStreams={remoteStreams}
-              audioSettings={audioSettings}
-              isDMCall={!!dmVoiceTarget}
-              targetDMFriend={dmVoiceTarget}
-              dmMessages={dmMessages}
-              channelMessages={activeChannel ? messages.filter((m) => m.channelId === activeChannel.id) : []}
-              onSendMessage={(text, attachment) => {
-                if (dmVoiceTarget) {
-                  handleSendDM(text, attachment);
-                } else if (currentServer && activeChannel) {
-                  handleSendMessage(text, attachment);
-                }
-              }}
-              onToggleMute={handleToggleMute}
-              onToggleDeafen={handleToggleDeafen}
-              onToggleScreenShare={handleToggleScreenShare}
-              onLeaveVoice={handleLeaveVoice}
-              onChangeQuality={handleChangeQuality}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-            />
-          ) : currentServer && activeChannel?.type === 'media' ? (
+          {currentVoiceChannelId && activeVoiceChannel && (
+            <div
+              className={
+                voiceViewMode === 'stage'
+                  ? 'flex-1 flex overflow-hidden min-w-0'
+                  : 'hidden'
+              }
+            >
+              <VoiceRoom
+                channel={activeVoiceChannel}
+                currentUser={currentUser}
+                usersInRoom={usersInVoiceRoom}
+                isMuted={isMuted}
+                isDeafened={isDeafened}
+                isSpeaking={isSpeaking}
+                remoteSpeakingPeers={remoteSpeakingPeers}
+                isScreenSharing={isScreenSharing}
+                streamQuality={streamQuality}
+                localScreenStream={localScreenStream}
+                remoteStreams={remoteStreams}
+                audioSettings={audioSettings}
+                isDMCall={!!dmVoiceTarget}
+                targetDMFriend={dmVoiceTarget}
+                dmMessages={dmMessages}
+                channelMessages={activeChannel ? messages.filter((m) => m.channelId === activeChannel.id) : []}
+                onSendMessage={(text, attachment) => {
+                  if (dmVoiceTarget) {
+                    handleSendDM(text, attachment);
+                  } else if (currentServer && activeChannel) {
+                    handleSendMessage(text, attachment);
+                  }
+                }}
+                onToggleMute={handleToggleMute}
+                onToggleDeafen={handleToggleDeafen}
+                onToggleScreenShare={handleToggleScreenShare}
+                onLeaveVoice={handleLeaveVoice}
+                onChangeQuality={handleChangeQuality}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+              />
+            </div>
+          )}
+          {!(currentVoiceChannelId && activeVoiceChannel && voiceViewMode === 'stage') && (
+            currentServer && activeChannel?.type === 'media' ? (
             <MediaRoom
               channel={activeChannel}
               currentUser={currentUser}
@@ -1456,7 +1466,7 @@ export const App: React.FC = () => {
               onRemoveFriend={handleRemoveFriend}
               downloadUrl={DESKTOP_APP_DOWNLOAD_URL}
             />
-          )}
+          ))}
 
           {/* Server Members Sidebar */}
           {currentServer && activeChannel?.type !== 'media' && !(currentVoiceChannelId && voiceViewMode === 'stage') && (

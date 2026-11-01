@@ -26,7 +26,7 @@ const AVATAR_COLORS = [
 export const LoginModal: React.FC<LoginModalProps> = ({
   onLogin,
   onRegister,
-  downloadUrl = 'https://github.com/ErickSantana10/janjacord/releases/download/v1.0.0/Janjacord-Windows.exe',
+  downloadUrl = 'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe',
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
@@ -76,11 +76,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <div className="absolute inset-0 rounded-2xl bg-violet-500/40 blur-xl animate-pulse" />
             <img
               src="/logo.jpg"
-              alt="Janjacord"
+              alt="Jolt"
               className="relative w-20 h-20 rounded-2xl object-cover shadow-2xl border-2 border-violet-400/50"
             />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Janjacord</h1>
+          <h1 className="text-2xl font-black text-white tracking-tight">Jolt</h1>
           <p className="text-xs text-violet-200/75 mt-1">
             Voz cristalina, salas de cinema sincronizadas e transmissão 60 FPS
           </p>
@@ -202,7 +202,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               {loading
                 ? 'Conectando...'
                 : mode === 'login'
-                ? 'Entrar no Janjacord'
+                ? 'Entrar no Jolt'
                 : 'Criar Minha Conta'}
             </span>
           </button>

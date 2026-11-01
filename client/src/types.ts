@@ -1,3 +1,5 @@
+export const APP_VERSION = '1.2.0';
+
 export type StreamQualityPreset = 'potato' | 'balanced' | 'gamer';
 
 export interface DesktopSource {
@@ -9,6 +11,12 @@ export interface DesktopSource {
   appIcon: string | null;
 }
 
+export interface UpdateProgressInfo {
+  percent: number;
+  transferredMB: string;
+  totalMB: string;
+}
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -16,6 +24,8 @@ declare global {
       getDesktopSources: () => Promise<DesktopSource[]>;
       selectDesktopSource: (options: { sourceId: string; shareAudio: boolean }) => Promise<{ success: boolean }>;
       openExternal: (url: string) => Promise<void>;
+      installUpdate?: (downloadUrl?: string) => Promise<{ success: boolean; error?: string }>;
+      onUpdateProgress?: (callback: (data: UpdateProgressInfo) => void) => () => void;
     };
   }
 }

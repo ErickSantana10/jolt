@@ -5,4 +5,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDesktopSources: () => ipcRenderer.invoke('desktop-capturer:get-sources'),
   selectDesktopSource: (options) => ipcRenderer.invoke('desktop-capturer:select-source', options),
   openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
+  installUpdate: (downloadUrl) => ipcRenderer.invoke('app:install-update', { downloadUrl }),
+  onUpdateProgress: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('app:update-progress', listener);
+    return () => ipcRenderer.removeListener('app:update-progress', listener);
+  },
 });

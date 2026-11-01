@@ -1,8 +1,8 @@
 {
-  "name": "janjacord-desktop",
+  "name": "jolt-desktop",
   "private": true,
-  "version": "1.0.0",
-  "description": "Janjacord — Voz, Vídeo Sincronizado e Transmissão 60 FPS",
+  "version": "1.2.0",
+  "description": "Jolt — Voz, Vídeo Sincronizado e Transmissão 60 FPS",
   "author": "Erick Santana",
   "type": "module",
   "main": "electron/main.cjs",
@@ -15,8 +15,8 @@
     "electron:dist": "npm run build && electron-builder --win portable"
   },
   "build": {
-    "appId": "com.ericksantana.janjacord",
-    "productName": "Janjacord",
+    "appId": "com.ericksantana.jolt",
+    "productName": "Jolt",
     "directories": {
       "output": "release"
     },
@@ -34,7 +34,7 @@
       "icon": "public/icon.ico"
     },
     "portable": {
-      "artifactName": "Janjacord-Windows.exe"
+      "artifactName": "Jolt-Windows.exe"
     }
   },
   "dependencies": {

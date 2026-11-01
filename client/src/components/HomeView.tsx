@@ -42,7 +42,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onSendFriendRequest,
   onAcceptFriend,
   onRemoveFriend,
-  downloadUrl = 'https://github.com/ErickSantana10/janjacord/releases/download/v1.0.0/Janjacord-Windows.exe',
+  downloadUrl = 'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe',
 }) => {
   const [tab, setTab] = useState<'online' | 'all' | 'pending' | 'add'>('online');
   const [addUsernameInput, setAddUsernameInput] = useState('');
@@ -160,12 +160,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <div className="flex items-center gap-4">
               <img
                 src="/logo.jpg"
-                alt="Janjacord App"
+                alt="Jolt App"
                 className="w-14 h-14 rounded-2xl object-cover border border-violet-400/40 shadow-lg shrink-0"
               />
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-black text-white">Janjacord Desktop para Windows</span>
+                  <span className="text-sm font-black text-white">Jolt Desktop para Windows</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30 flex items-center gap-1">
                     <Sparkles className="w-3 h-3" />
                     60 FPS + Áudio Nativo

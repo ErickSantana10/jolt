@@ -401,7 +401,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
               </button>
             )}
             <div className="px-3 text-[10px] text-slate-500 font-mono">
-              Janjacord v2.0 • Audio Engine
+              Jolt v1.2.0 • Audio Engine
             </div>
           </div>
         </div>
@@ -442,7 +442,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                   <div>
                     <h3 className="text-base font-black text-white">Voz</h3>
                     <p className="text-xs text-slate-400">
-                      Escolha qual microfone e qual fone/alto-falante o Janjacord deve usar.
+                      Escolha qual microfone e qual fone/alto-falante o Jolt deve usar.
                     </p>
                   </div>
                   <button
@@ -589,7 +589,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                         {
                           id: 'isolation',
                           title: 'Isolamento de Voz (Voice Isolation)',
-                          desc: 'Apenas sua voz limpa: o Janjacord corta o barulho do teclado, ventilador e eco automaticamente.',
+                          desc: 'Apenas sua voz limpa: o Jolt corta o barulho do teclado, ventilador e eco automaticamente.',
                         },
                         {
                           id: 'studio',
@@ -661,7 +661,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                 <div className="space-y-4">
                   <ToggleRow
                     label="Ajustar Sensibilidade de Entrada Automaticamente"
-                    description="Controla quanto som o Janjacord exige para ativar seu microfone na chamada."
+                    description="Controla quanto som o Jolt exige para ativar seu microfone na chamada."
                     checked={localAudio.autoSensitivity}
                     onChange={(v) => updateAudioField('autoSensitivity', v)}
                   />
@@ -737,7 +737,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                       )}
                     </div>
                     <p className="text-xs text-slate-400">
-                      Personalize sua foto, nome de exibição, recado e cor no Janjacord.
+                      Personalize sua foto, nome de exibição, recado e cor no Jolt.
                     </p>
                     <div className="flex items-center justify-center sm:justify-start gap-2 pt-1">
                       <button
@@ -772,7 +772,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      placeholder="Seu nome no Janjacord"
+                      placeholder="Seu nome no Jolt"
                       className="w-full bg-[#150d26] border border-violet-500/25 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 outline-none focus:border-violet-400 transition select-text"
                     />
                   </div>
@@ -889,10 +889,10 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
                   </div>
                   <div className="space-y-1">
                     <div className="text-xs font-black text-emerald-300">
-                      Proteção Anti-Eco do Janjacord Sempre Ativa
+                      Proteção Anti-Eco do Jolt Sempre Ativa
                     </div>
                     <p className="text-[11px] text-slate-300 leading-relaxed">
-                      Mesmo quando você compartilha o áudio de todo o computador, o motor WebAudio + WASAPI do Janjacord isola e suprime automaticamente a voz dos seus amigos na call para que eles nunca ouçam a própria voz duplicada.
+                      Mesmo quando você compartilha o áudio de todo o computador, o motor WebAudio + WASAPI do Jolt isola e suprime automaticamente a voz dos seus amigos na call para que eles nunca ouçam a própria voz duplicada.
                     </p>
                   </div>
                 </div>
@@ -903,7 +903,7 @@ export const UserSettingsModal: React.FC<UserSettingsModalProps> = ({
             {activeTab === 'sounds' && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-base font-black text-white">Sons & Efeitos do Janjacord</h3>
+                  <h3 className="text-base font-black text-white">Sons & Efeitos do Jolt</h3>
                   <p className="text-xs text-slate-400 mt-0.5">
                     Teste e configure os avisos sonoros de chamadas e mensagens.
                   </p>

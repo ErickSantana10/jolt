@@ -1,19 +1,33 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell } = require('electron');
 const path = require('path');
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
+const { spawn } = require('child_process');
 
-// Melhora compatibilidade de captura de tela, WebRTC e exclui o próprio áudio do Janjacord no loopback do Windows (Zero Eco!)
+// Ativa reprodução automática de áudio/vídeo e captura de áudio do sistema (WASAPI Loopback)
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch(
   'enable-features',
-  'RestrictOwnAudio,SystemLoopbackAsAecReference,WebRTCPipeWireCapturer'
+  'SystemLoopbackAsAecReference,PulseAudioLoopbackForScreenShare,WebRTCPipeWireCapturer'
 );
 
 let mainWindow = null;
 let selectedSourceId = null;
 let selectedShareAudio = true;
 let localServer = null;
+
+// Limpa arquivo .old deixado por atualização anterior do executável portátil
+function cleanupOldUpdateFiles() {
+  try {
+    const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
+    if (portableExe && fs.existsSync(portableExe + '.old')) {
+      fs.unlinkSync(portableExe + '.old');
+    }
+  } catch {
+    // Ignora se ainda estiver sendo liberado pelo sistema
+  }
+}
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -43,7 +57,6 @@ function startStaticServer(distDir) {
         if (pathname === '/') pathname = '/index.html';
 
         let filePath = path.join(distDir, pathname);
-        // Previne directory traversal
         if (!filePath.startsWith(distDir)) {
           res.writeHead(403);
           res.end('Forbidden');
@@ -75,7 +88,7 @@ function startStaticServer(distDir) {
       }
     });
 
-    // Tenta usar porta fixa 19847 para manter o localStorage persistente entre sessões
+    // Porta fixa 19847 para manter o localStorage persistente entre sessões e atualizações
     const tryPorts = [19847, 19848, 19849, 0];
     let portIndex = 0;
 
@@ -99,15 +112,82 @@ function startStaticServer(distDir) {
   });
 }
 
+function downloadFileWithProgress(url, destPath, onProgress) {
+  return new Promise((resolve, reject) => {
+    const request = (currentUrl, redirectCount = 0) => {
+      if (redirectCount > 8) {
+        return reject(new Error('Muitos redirecionamentos durante o download.'));
+      }
+
+      const client = currentUrl.startsWith('https') ? https : http;
+      client
+        .get(
+          currentUrl,
+          {
+            headers: {
+              'User-Agent': 'Jolt-Desktop-Updater',
+            },
+          },
+          (res) => {
+            if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+              res.resume();
+              const nextUrl = new URL(res.headers.location, currentUrl).toString();
+              return request(nextUrl, redirectCount + 1);
+            }
+
+            if (res.statusCode !== 200) {
+              res.resume();
+              return reject(new Error(`Falha no download (HTTP ${res.statusCode})`));
+            }
+
+            const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
+            let transferredBytes = 0;
+
+            const fileStream = fs.createWriteStream(destPath);
+            res.on('data', (chunk) => {
+              transferredBytes += chunk.length;
+              if (totalBytes > 0 && onProgress) {
+                const percent = Math.min(100, Math.round((transferredBytes / totalBytes) * 100));
+                onProgress({
+                  percent,
+                  transferredMB: (transferredBytes / (1024 * 1024)).toFixed(1),
+                  totalMB: (totalBytes / (1024 * 1024)).toFixed(1),
+                });
+              }
+            });
+
+            res.pipe(fileStream);
+
+            fileStream.on('finish', () => {
+              fileStream.close(() => resolve(destPath));
+            });
+
+            fileStream.on('error', (err) => {
+              try {
+                fs.unlinkSync(destPath);
+              } catch {}
+              reject(err);
+            });
+          }
+        )
+        .on('error', (err) => {
+          reject(err);
+        });
+    };
+
+    request(url);
+  });
+}
+
 function setupScreenShareAndPermissions() {
-  // 1. Concede automaticamente permissões de microfone, câmera e captura de tela
+  // 1. Concede automaticamente permissões de microfone, câmera e captura de tela + áudio
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
     const allowed = [
       'media',
       'display-capture',
       'audioCapture',
       'videoCapture',
-      ' desktopCapture',
+      'desktopCapture',
       'fullscreen',
       'notifications',
     ];
@@ -142,11 +222,11 @@ function setupScreenShareAndPermissions() {
   // 3. IPC para definir qual tela/janela o usuário escolheu antes de iniciar getDisplayMedia
   ipcMain.handle('desktop-capturer:select-source', (_event, { sourceId, shareAudio }) => {
     selectedSourceId = sourceId || null;
-    selectedShareAudio = Boolean(shareAudio);
+    selectedShareAudio = shareAudio !== undefined ? Boolean(shareAudio) : true;
     return { success: true };
   });
 
-  // 4. Handler nativo para getDisplayMedia no Electron (resolve o bug de transmissão de tela!)
+  // 4. Handler nativo para getDisplayMedia no Electron com suporte a áudio loopback do Windows
   session.defaultSession.setDisplayMediaRequestHandler(async (_request, callback) => {
     try {
       const sources = await desktopCapturer.getSources({
@@ -184,6 +264,62 @@ function setupScreenShareAndPermissions() {
       await shell.openExternal(url);
     }
   });
+
+  // 6. Auto-Atualizador com 1 clique: baixa a nova versão do GitHub, substitui o executável e reinicia!
+  ipcMain.handle('app:install-update', async (_event, { downloadUrl }) => {
+    try {
+      const targetUrl =
+        downloadUrl ||
+        'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe';
+
+      const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
+      const downloadsDir = app.getPath('downloads');
+      const finalExePath = portableExe || path.join(downloadsDir, 'Jolt-Windows.exe');
+      const tempDownloadPath = finalExePath + '.new';
+
+      await downloadFileWithProgress(targetUrl, tempDownloadPath, (progress) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('app:update-progress', progress);
+        }
+      });
+
+      if (portableExe && fs.existsSync(portableExe)) {
+        const oldBackupPath = portableExe + '.old';
+        try {
+          if (fs.existsSync(oldBackupPath)) {
+            fs.unlinkSync(oldBackupPath);
+          }
+          // O Windows permite renomear o executável em execução e colocar o novo no lugar
+          fs.renameSync(portableExe, oldBackupPath);
+          fs.renameSync(tempDownloadPath, portableExe);
+        } catch {
+          // Fallback caso esteja bloqueado: salva em Downloads e executa de lá
+          const fallbackPath = path.join(downloadsDir, 'Jolt-Windows.exe');
+          fs.copyFileSync(tempDownloadPath, fallbackPath);
+          try {
+            fs.unlinkSync(tempDownloadPath);
+          } catch {}
+          spawn(fallbackPath, [], { detached: true, stdio: 'ignore' }).unref();
+          setTimeout(() => app.quit(), 400);
+          return { success: true };
+        }
+      } else {
+        if (fs.existsSync(finalExePath)) {
+          try {
+            fs.unlinkSync(finalExePath);
+          } catch {}
+        }
+        fs.renameSync(tempDownloadPath, finalExePath);
+      }
+
+      spawn(finalExePath, [], { detached: true, stdio: 'ignore' }).unref();
+      setTimeout(() => app.quit(), 400);
+      return { success: true };
+    } catch (err) {
+      console.error('[Updater] Erro ao atualizar aplicativo:', err);
+      return { success: false, error: err.message || 'Erro ao baixar atualização.' };
+    }
+  });
 }
 
 async function createWindow() {
@@ -196,7 +332,7 @@ async function createWindow() {
     height: 840,
     minWidth: 960,
     minHeight: 620,
-    title: 'Janjacord',
+    title: 'Jolt',
     backgroundColor: '#090612',
     icon: iconPath,
     autoHideMenuBar: true,
@@ -211,7 +347,6 @@ async function createWindow() {
 
   mainWindow.setMenuBarVisibility(false);
 
-  // Abre links com target="_blank" no navegador externo
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       shell.openExternal(url);
@@ -231,6 +366,7 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  cleanupOldUpdateFiles();
   setupScreenShareAndPermissions();
   await createWindow();
 

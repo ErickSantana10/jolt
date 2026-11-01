@@ -683,7 +683,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div>
               <h4 className="text-base font-black text-white">Nível Máximo de Impulso!</h4>
               <p className="text-xs text-slate-300 mt-1.5 leading-relaxed">
-                O servidor <span className="font-bold text-fuchsia-400">"{currentServer.name}"</span> já possui todos os recursos VIP do Janjacord liberados: transmissão 1080p 60fps, áudio cristalino e salas de vídeo sincronizadas!
+                O servidor <span className="font-bold text-fuchsia-400">"{currentServer.name}"</span> já possui todos os recursos VIP do Jolt liberados: transmissão 1080p 60fps, áudio cristalino e salas de vídeo sincronizadas!
               </p>
             </div>
             <button

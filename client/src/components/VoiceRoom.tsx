@@ -735,9 +735,16 @@ const ScreenShareCard: React.FC<{
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
   const [streamVolume, setStreamVolume] = useState(100);
   const [localMuteStream, setLocalMuteStream] = useState(false);
+
+  const audioTrackIds = stream
+    .getAudioTracks()
+    .map((t) => t.id)
+    .join(',');
+  const hasScreenAudio = stream.getAudioTracks().length > 0;
 
   useEffect(() => {
     const videoEl = videoRef.current;
@@ -745,17 +752,33 @@ const ScreenShareCard: React.FC<{
     if (videoEl.srcObject !== stream) {
       videoEl.srcObject = stream;
     }
-    const effectiveMuted = isLocal || muted || localMuteStream || streamVolume === 0;
-    videoEl.muted = effectiveMuted;
-    const combinedVol = Math.min(1, Math.max(0, (outputVolume / 100) * (streamVolume / 100)));
-    videoEl.volume = combinedVol;
+    videoEl.muted = true; // Vídeo sempre mudo; o áudio da transmissão toca no elemento <audio> dedicado abaixo
+    videoEl.play().catch(() => {});
+  }, [stream]);
 
-    if (!isLocal && sinkId && sinkId !== 'default' && 'setSinkId' in videoEl) {
-      (videoEl as any).setSinkId(sinkId).catch(() => {});
+  useEffect(() => {
+    const audioEl = audioRef.current;
+    if (!audioEl || isLocal) return;
+
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      audioEl.srcObject = null;
+      return;
     }
 
-    videoEl.play().catch(() => {});
-  }, [stream, isLocal, muted, localMuteStream, streamVolume, outputVolume, sinkId]);
+    const audioOnlyStream = new MediaStream(audioTracks);
+    audioEl.srcObject = audioOnlyStream;
+    const effectiveMuted = muted || localMuteStream || streamVolume === 0;
+    audioEl.muted = effectiveMuted;
+    const combinedVol = Math.min(1, Math.max(0, (outputVolume / 100) * (streamVolume / 100)));
+    audioEl.volume = combinedVol;
+
+    if (sinkId && sinkId !== 'default' && 'setSinkId' in audioEl) {
+      (audioEl as any).setSinkId(sinkId).catch(() => {});
+    }
+
+    audioEl.play().catch(() => {});
+  }, [stream, audioTrackIds, isLocal, muted, localMuteStream, streamVolume, outputVolume, sinkId]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -794,9 +817,10 @@ const ScreenShareCard: React.FC<{
         ref={videoRef}
         autoPlay
         playsInline
-        muted={isLocal || muted || localMuteStream}
+        muted={true}
         className="w-full h-full object-contain bg-black"
       />
+      {!isLocal && <audio ref={audioRef} autoPlay className="hidden" />}
 
       {/* Badge sempre visível no canto superior esquerdo */}
       <div className="absolute top-3.5 left-4 flex items-center gap-2 pointer-events-none z-10">
@@ -812,6 +836,12 @@ const ScreenShareCard: React.FC<{
         <span className="px-2.5 py-1 text-xs font-bold text-white bg-black/70 backdrop-blur-md rounded-lg border border-white/10">
           {title}
         </span>
+        {hasScreenAudio && (
+          <span className="px-2 py-1 text-[10px] font-bold text-emerald-300 bg-emerald-500/20 backdrop-blur-md rounded-lg border border-emerald-500/35 flex items-center gap-1">
+            <Volume2 className="w-3 h-3" />
+            <span>SOM ATIVO</span>
+          </span>
+        )}
       </div>
 
       {/* Barra de controles flutuante ao passar o mouse */}

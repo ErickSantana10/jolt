@@ -9,6 +9,7 @@ import {
 export class WebRTCManager {
   private socket: Socket;
   private peerConnections: Map<string, RTCPeerConnection> = new Map();
+  private peerMicStreamIds: Map<string, string> = new Map();
   private makingOffer: Map<string, boolean> = new Map();
   private ignoreOffer: Map<string, boolean> = new Map();
   private pendingCandidates: Map<string, RTCIceCandidateInit[]> = new Map();
@@ -31,7 +32,6 @@ export class WebRTCManager {
   // Anti-Eco e Detector de Fala Remota
   private remoteVoiceAnalysers: Map<string, { source: MediaStreamAudioSourceNode; analyser: AnalyserNode }> =
     new Map();
-  private screenAudioGainNode: GainNode | null = null;
   private antiEchoInterval: number | null = null;
   private remoteSpeakingInterval: number | null = null;
   private lastRemoteSpeakingKey: string = '';
@@ -97,90 +97,99 @@ export class WebRTCManager {
   }
 
   private setupSignaling() {
-    this.socket.on('webrtc:offer', async (payload: { fromSocketId?: string; fromPeerId?: string; offer: RTCSessionDescriptionInit }) => {
-      const fromId = payload.fromSocketId || payload.fromPeerId;
-      const offer = payload.offer;
-      if (!fromId || !offer) return;
+    this.socket.on(
+      'webrtc:offer',
+      async (payload: { fromSocketId?: string; fromPeerId?: string; offer: RTCSessionDescriptionInit }) => {
+        const fromId = payload.fromSocketId || payload.fromPeerId;
+        const offer = payload.offer;
+        if (!fromId || !offer) return;
 
-      try {
-        const pc = this.getOrCreatePeerConnection(fromId);
-        const isPolite = (this.socket.id || '') < fromId;
-        const offerCollision = this.makingOffer.get(fromId) || pc.signalingState !== 'stable';
+        try {
+          const pc = this.getOrCreatePeerConnection(fromId);
+          const isPolite = (this.socket.id || '') < fromId;
+          const offerCollision = this.makingOffer.get(fromId) || pc.signalingState !== 'stable';
 
-        this.ignoreOffer.set(fromId, !isPolite && offerCollision);
-        if (this.ignoreOffer.get(fromId)) {
-          return;
-        }
+          this.ignoreOffer.set(fromId, !isPolite && offerCollision);
+          if (this.ignoreOffer.get(fromId)) {
+            return;
+          }
 
-        if (offerCollision) {
-          await Promise.all([
-            pc.setLocalDescription({ type: 'rollback' }),
-            pc.setRemoteDescription(new RTCSessionDescription(offer)),
-          ]);
-        } else {
-          await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        }
+          if (offerCollision) {
+            await Promise.all([
+              pc.setLocalDescription({ type: 'rollback' }),
+              pc.setRemoteDescription(new RTCSessionDescription(offer)),
+            ]);
+          } else {
+            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          }
 
-        await this.flushPendingCandidates(fromId, pc);
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-        this.socket.emit('webrtc:answer', {
-          targetSocketId: fromId,
-          toPeerId: fromId,
-          answer: pc.localDescription || answer,
-        });
-
-        // Se estivermos compartilhando tela e o offer recebido do colega não tinha linha de vídeo,
-        // renegociamos em seguida para empurrar nossa transmissão de tela para ele!
-        if (this.screenStream && (!offer.sdp || !offer.sdp.includes('m=video'))) {
-          setTimeout(() => {
-            if (pc.signalingState === 'stable') {
-              this.renegotiate(fromId, pc);
-            }
-          }, 250);
-        }
-      } catch (err) {
-        console.warn('[WebRTC] Erro ao processar offer:', err);
-      }
-    });
-
-    this.socket.on('webrtc:answer', async (payload: { fromSocketId?: string; fromPeerId?: string; answer: RTCSessionDescriptionInit }) => {
-      const fromId = payload.fromSocketId || payload.fromPeerId;
-      const answer = payload.answer;
-      if (!fromId || !answer) return;
-
-      try {
-        const pc = this.peerConnections.get(fromId);
-        if (pc && pc.signalingState === 'have-local-offer') {
-          await pc.setRemoteDescription(new RTCSessionDescription(answer));
           await this.flushPendingCandidates(fromId, pc);
-        }
-      } catch (err) {
-        console.warn('[WebRTC] Erro ao processar answer:', err);
-      }
-    });
 
-    this.socket.on('webrtc:ice-candidate', async (payload: { fromSocketId?: string; fromPeerId?: string; candidate: RTCIceCandidateInit }) => {
-      const fromId = payload.fromSocketId || payload.fromPeerId;
-      const candidate = payload.candidate;
-      if (!fromId || !candidate) return;
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
 
-      try {
-        if (this.ignoreOffer.get(fromId)) return;
-        const pc = this.getOrCreatePeerConnection(fromId);
-        if (pc.remoteDescription && pc.remoteDescription.type) {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        } else {
-          const list = this.pendingCandidates.get(fromId) || [];
-          list.push(candidate);
-          this.pendingCandidates.set(fromId, list);
+          this.socket.emit('webrtc:answer', {
+            targetSocketId: fromId,
+            toPeerId: fromId,
+            answer: pc.localDescription || answer,
+          });
+
+          // Se estivermos compartilhando tela e o offer inicial do colega não tinha vídeo/áudio extra,
+          // renegociamos em seguida para enviar nossa transmissão completa (vídeo + som da tela)!
+          if (this.screenStream) {
+            setTimeout(() => {
+              if (pc.signalingState === 'stable') {
+                this.renegotiate(fromId, pc);
+              }
+            }, 250);
+          }
+        } catch (err) {
+          console.warn('[WebRTC] Erro ao processar offer:', err);
         }
-      } catch {
-        // Ignora candidatos ICE obsoletos durante renegociação
       }
-    });
+    );
+
+    this.socket.on(
+      'webrtc:answer',
+      async (payload: { fromSocketId?: string; fromPeerId?: string; answer: RTCSessionDescriptionInit }) => {
+        const fromId = payload.fromSocketId || payload.fromPeerId;
+        const answer = payload.answer;
+        if (!fromId || !answer) return;
+
+        try {
+          const pc = this.peerConnections.get(fromId);
+          if (pc && pc.signalingState === 'have-local-offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            await this.flushPendingCandidates(fromId, pc);
+          }
+        } catch (err) {
+          console.warn('[WebRTC] Erro ao processar answer:', err);
+        }
+      }
+    );
+
+    this.socket.on(
+      'webrtc:ice-candidate',
+      async (payload: { fromSocketId?: string; fromPeerId?: string; candidate: RTCIceCandidateInit }) => {
+        const fromId = payload.fromSocketId || payload.fromPeerId;
+        const candidate = payload.candidate;
+        if (!fromId || !candidate) return;
+
+        try {
+          if (this.ignoreOffer.get(fromId)) return;
+          const pc = this.getOrCreatePeerConnection(fromId);
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } else {
+            const list = this.pendingCandidates.get(fromId) || [];
+            list.push(candidate);
+            this.pendingCandidates.set(fromId, list);
+          }
+        } catch {
+          // Ignora candidatos ICE obsoletos durante renegociação
+        }
+      }
+    );
 
     this.socket.on('voice:peer-left', (payload: { socketId?: string; peerId?: string }) => {
       const leftId = payload.socketId || payload.peerId;
@@ -193,15 +202,6 @@ export class WebRTCManager {
   public async connectToPeer(targetSocketId: string) {
     if (!targetSocketId || targetSocketId === this.socket.id) return;
     const pc = this.getOrCreatePeerConnection(targetSocketId);
-
-    // Garante que mesmo sem microfone local o SDP peça recebimento de áudio e vídeo
-    if (pc.getTransceivers().length === 0) {
-      try {
-        pc.addTransceiver('audio', { direction: 'sendrecv' });
-        pc.addTransceiver('video', { direction: 'recvonly' });
-      } catch {}
-    }
-
     await this.renegotiate(targetSocketId, pc);
   }
 
@@ -275,7 +275,12 @@ export class WebRTCManager {
     }
 
     if (this.screenStream) {
-      this.screenStream.getTracks().forEach((track) => {
+      // Adiciona o vídeo primeiro e o áudio da tela em seguida para manter o agrupamento do MediaStream
+      const orderedScreenTracks = [
+        ...this.screenStream.getVideoTracks(),
+        ...this.screenStream.getAudioTracks(),
+      ];
+      orderedScreenTracks.forEach((track) => {
         const already = pc.getSenders().some((s) => s.track === track);
         if (!already) {
           pc.addTrack(track, this.screenStream!);
@@ -295,11 +300,30 @@ export class WebRTCManager {
 
     pc.ontrack = (event) => {
       const remoteStream = event.streams[0] || new MediaStream([event.track]);
-      const isScreen = event.track.kind === 'video' || remoteStream.getVideoTracks().length > 0;
-      this.onRemoteStream?.(peerId, remoteStream, isScreen);
+
+      // Identifica o primeiro stream somente de áudio como o microfone do participante;
+      // qualquer outro stream ou stream com vídeo é a transmissão de tela (com seu respectivo áudio!)
+      if (
+        event.track.kind === 'audio' &&
+        remoteStream.getVideoTracks().length === 0 &&
+        !this.peerMicStreamIds.has(peerId)
+      ) {
+        this.peerMicStreamIds.set(peerId, remoteStream.id);
+      }
+
+      const isMicStream = this.peerMicStreamIds.get(peerId) === remoteStream.id && remoteStream.getVideoTracks().length === 0;
+      const isScreen =
+        event.track.kind === 'video' ||
+        remoteStream.getVideoTracks().length > 0 ||
+        !isMicStream;
+
+      // Criamos uma nova instância MediaStream com todas as tracks atuais para que o React
+      // detecte imediatamente quando a track de áudio da tela se junta à track de vídeo!
+      const freshStream = new MediaStream(remoteStream.getTracks());
+      this.onRemoteStream?.(peerId, freshStream, isScreen);
 
       if (!isScreen && event.track.kind === 'audio') {
-        this.registerRemoteVoiceForAntiEcho(peerId, remoteStream);
+        this.registerRemoteVoiceForAntiEcho(peerId, freshStream);
       }
 
       if (event.track.kind === 'video') {
@@ -316,13 +340,15 @@ export class WebRTCManager {
           }
         };
         event.track.onunmute = () => {
-          this.onRemoteStream?.(peerId, remoteStream, true);
+          this.onRemoteStream?.(peerId, new MediaStream(remoteStream.getTracks()), true);
         };
       }
 
       remoteStream.onaddtrack = (e) => {
         const nowHasVideo = e.track.kind === 'video' || remoteStream.getVideoTracks().length > 0;
-        this.onRemoteStream?.(peerId, remoteStream, nowHasVideo);
+        const streamIsScreen =
+          nowHasVideo || this.peerMicStreamIds.get(peerId) !== remoteStream.id;
+        this.onRemoteStream?.(peerId, new MediaStream(remoteStream.getTracks()), streamIsScreen);
       };
 
       remoteStream.onremovetrack = (e) => {
@@ -334,7 +360,6 @@ export class WebRTCManager {
 
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === 'failed') {
-        // Tenta reiniciar o ICE automaticamente se falhar na primeira tentativa
         try {
           pc.restartIce();
           this.renegotiate(peerId, pc);
@@ -383,7 +408,6 @@ export class WebRTCManager {
         video: false,
       });
     } catch {
-      // Fallback com constraints básicos caso o dispositivo selecionado não esteja disponível
       this.rawMicStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: false,
@@ -395,9 +419,10 @@ export class WebRTCManager {
     for (const [peerId, pc] of this.peerConnections.entries()) {
       const audioTrack = this.localStream?.getAudioTracks()[0];
       if (audioTrack && this.localStream) {
+        const screenAudioTracks = this.screenStream ? this.screenStream.getAudioTracks() : [];
         const existingAudioSender = pc
           .getSenders()
-          .find((s) => s.track && s.track.kind === 'audio' && s.track !== this.screenStream?.getAudioTracks()[0]);
+          .find((s) => s.track && s.track.kind === 'audio' && !screenAudioTracks.includes(s.track));
         if (existingAudioSender) {
           await existingAudioSender.replaceTrack(audioTrack);
         } else {
@@ -459,7 +484,6 @@ export class WebRTCManager {
         const threshold = this.audioSettings.autoSensitivity ? 14 : this.audioSettings.sensitivityThreshold;
         const isSpeaking = !this.isMuted && average > threshold;
 
-        // Se a sensibilidade manual estiver ativa, atua como Noise Gate cortando ruído abaixo do limite
         if (this.micGainNode && this.audioContext) {
           const baseGain = this.isMuted ? 0 : this.audioSettings.inputVolume / 100;
           const targetGain =
@@ -509,10 +533,11 @@ export class WebRTCManager {
 
         const newProcessedTrack = this.localStream?.getAudioTracks()[0];
         if (newProcessedTrack) {
+          const screenAudioTracks = this.screenStream ? this.screenStream.getAudioTracks() : [];
           for (const pc of this.peerConnections.values()) {
             const sender = pc
               .getSenders()
-              .find((s) => s.track && s.track.kind === 'audio' && s.track !== this.screenStream?.getAudioTracks()[0]);
+              .find((s) => s.track && s.track.kind === 'audio' && !screenAudioTracks.includes(s.track));
             if (sender) {
               await sender.replaceTrack(newProcessedTrack);
             }
@@ -549,77 +574,49 @@ export class WebRTCManager {
   }
 
   /**
-   * Filtra o áudio do compartilhamento de tela para NUNCA transmitir a voz/sons do próprio Janjacord (Zero Eco!)
+   * Mantém a track nativa de áudio do sistema intacta (para evitar o bug de silêncio do WebAudio no Chromium)
+   * e aplica o gate Anti-Eco diretamente em `rawAudioTrack.enabled` sempre que um colega na call falar!
    */
-  private buildEchoFreeScreenStream(rawStream: MediaStream): MediaStream {
-    const videoTracks = rawStream.getVideoTracks();
+  private setupAntiEchoOnScreenStream(rawStream: MediaStream): MediaStream {
     const audioTracks = rawStream.getAudioTracks();
-
     if (audioTracks.length === 0) {
       return rawStream;
     }
 
-    const rawAudioTrack = audioTracks[0];
-    const settings = (rawAudioTrack.getSettings ? rawAudioTrack.getSettings() : {}) as any;
-    const hasNativeOwnAudioExclusion = settings.restrictOwnAudio === true;
+    const screenAudioTrack = audioTracks[0];
 
-    try {
-      const ctx = this.getAudioContext();
-      const source = ctx.createMediaStreamSource(new MediaStream([rawAudioTrack]));
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = 1.0;
-      const destination = ctx.createMediaStreamDestination();
-
-      source.connect(gainNode);
-      gainNode.connect(destination);
-      this.screenAudioGainNode = gainNode;
-
-      if (this.antiEchoInterval) {
-        clearInterval(this.antiEchoInterval);
-      }
-
-      const freqData = new Uint8Array(128);
-      this.antiEchoInterval = window.setInterval(() => {
-        if (!this.screenAudioGainNode || !this.audioContext) return;
-
-        if (hasNativeOwnAudioExclusion) {
-          return;
-        }
-
-        let remoteSpeakingNow = false;
-        for (const { analyser } of this.remoteVoiceAnalysers.values()) {
-          analyser.getByteFrequencyData(freqData);
-          let sum = 0;
-          for (let i = 0; i < freqData.length; i++) sum += freqData[i];
-          const avg = sum / freqData.length;
-          if (avg > 10) {
-            remoteSpeakingNow = true;
-            break;
-          }
-        }
-
-        const targetGain = remoteSpeakingNow ? 0.0 : 1.0;
-        const timeConstant = remoteSpeakingNow ? 0.01 : 0.08;
-        this.screenAudioGainNode.gain.setTargetAtTime(
-          targetGain,
-          this.audioContext.currentTime,
-          timeConstant
-        );
-      }, 35);
-
-      const processedAudioTrack = destination.stream.getAudioTracks()[0];
-      if (processedAudioTrack) {
-        return new MediaStream([...videoTracks, processedAudioTrack]);
-      }
-    } catch (err) {
-      console.warn('[WebRTC] Aviso ao criar filtro anti-eco WebAudio:', err);
+    if (this.antiEchoInterval) {
+      clearInterval(this.antiEchoInterval);
     }
+
+    const freqData = new Uint8Array(128);
+    this.antiEchoInterval = window.setInterval(() => {
+      if (screenAudioTrack.readyState !== 'live') return;
+
+      let remoteSpeakingNow = false;
+      for (const { analyser } of this.remoteVoiceAnalysers.values()) {
+        analyser.getByteFrequencyData(freqData);
+        let sum = 0;
+        for (let i = 0; i < freqData.length; i++) sum += freqData[i];
+        const avg = sum / freqData.length;
+        if (avg > 12) {
+          remoteSpeakingNow = true;
+          break;
+        }
+      }
+
+      // Silencia instantaneamente o loopback enquanto um amigo fala na call para não dar eco da voz dele
+      const shouldEnable = !remoteSpeakingNow;
+      if (screenAudioTrack.enabled !== shouldEnable) {
+        screenAudioTrack.enabled = shouldEnable;
+      }
+    }, 40);
 
     return rawStream;
   }
 
   /**
-   * Inicia o compartilhamento de tela (compatível com Navegador Web e App Desktop Electron)
+   * Inicia o compartilhamento de tela com suporte completo a Áudio do Sistema (Desktop e Navegador)
    */
   public async startScreenShare(
     presetKey: StreamQualityPreset,
@@ -634,62 +631,72 @@ export class WebRTCManager {
 
     let acquiredStream: MediaStream | null = null;
 
-    const antiEchoAudioConstraints: any = shareAudio
-      ? {
-          restrictOwnAudio: true,
-          disableLocalEcho: true,
-          suppressLocalAudioPlayback: false,
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        }
-      : false;
-
     if (window.electronAPI?.isElectron) {
       if (sourceId) {
         await window.electronAPI.selectDesktopSource({ sourceId, shareAudio });
       }
 
       try {
+        // No Electron, passamos `audio: shareAudio` (boolean) para que o setDisplayMediaRequestHandler
+        // conecte o loopback nativo do Windows sem rejeitar as constraints!
         acquiredStream = await navigator.mediaDevices.getDisplayMedia({
           video: true,
-          audio: antiEchoAudioConstraints,
-          systemAudio: 'include',
-          selfBrowserSurface: 'exclude',
-        } as any);
+          audio: shareAudio,
+        });
       } catch (err1) {
-        console.warn('[WebRTC Electron] Tentativa 1 falhou, tentando vídeo + áudio simples:', err1);
+        console.warn('[WebRTC Electron] Tentativa com áudio falhou, tentando vídeo e capturando áudio em separado:', err1);
         try {
+          await window.electronAPI.selectDesktopSource({ sourceId: sourceId || '', shareAudio: false });
           acquiredStream = await navigator.mediaDevices.getDisplayMedia({
             video: true,
-            audio: shareAudio,
+            audio: false,
           });
         } catch (err2) {
-          console.warn('[WebRTC Electron] Tentativa 2 falhou, tentando somente vídeo:', err2);
-          try {
-            await window.electronAPI.selectDesktopSource({ sourceId: sourceId || '', shareAudio: false });
-            acquiredStream = await navigator.mediaDevices.getDisplayMedia({
-              video: true,
+          if (sourceId) {
+            acquiredStream = await navigator.mediaDevices.getUserMedia({
               audio: false,
+              video: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: sourceId,
+                  maxWidth: preset.width,
+                  maxHeight: preset.height,
+                  maxFrameRate: preset.fps,
+                },
+              } as any,
             });
-          } catch (err3) {
-            if (sourceId) {
-              acquiredStream = await navigator.mediaDevices.getUserMedia({
-                audio: false,
-                video: {
-                  mandatory: {
-                    chromeMediaSource: 'desktop',
-                    chromeMediaSourceId: sourceId,
-                    maxWidth: preset.width,
-                    maxHeight: preset.height,
-                    maxFrameRate: preset.fps,
-                  },
-                } as any,
-              });
-            } else {
-              throw err3;
-            }
+          } else {
+            throw err2;
           }
+        }
+      }
+
+      // Se o usuário pediu para compartilhar áudio e por algum motivo a captura de janela veio sem track de áudio,
+      // captura explicitamente a track de loopback desktop do Windows e junta ao stream!
+      if (acquiredStream && shareAudio && acquiredStream.getAudioTracks().length === 0) {
+        try {
+          const loopbackStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+              },
+            } as any,
+            video: {
+              mandatory: {
+                chromeMediaSource: 'desktop',
+                maxWidth: 16,
+                maxHeight: 16,
+                maxFrameRate: 1,
+              },
+            } as any,
+          });
+          loopbackStream.getVideoTracks().forEach((vt) => vt.stop());
+          const loopbackAudioTrack = loopbackStream.getAudioTracks()[0];
+          if (loopbackAudioTrack) {
+            acquiredStream.addTrack(loopbackAudioTrack);
+          }
+        } catch (loopbackErr) {
+          console.warn('[WebRTC Electron] Aviso ao capturar loopback complementar:', loopbackErr);
         }
       }
     } else {
@@ -699,7 +706,14 @@ export class WebRTCManager {
           height: { ideal: preset.height, max: preset.height },
           frameRate: { ideal: preset.fps, max: preset.fps },
         },
-        audio: antiEchoAudioConstraints,
+        audio: shareAudio
+          ? {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              suppressLocalAudioPlayback: false,
+            }
+          : false,
         systemAudio: 'include',
         selfBrowserSurface: 'exclude',
       } as any);
@@ -710,7 +724,7 @@ export class WebRTCManager {
     }
 
     this.rawScreenStream = acquiredStream;
-    this.screenStream = this.buildEchoFreeScreenStream(acquiredStream);
+    this.screenStream = this.setupAntiEchoOnScreenStream(acquiredStream);
 
     const videoTrack = this.screenStream.getVideoTracks()[0];
     if (videoTrack) {
@@ -734,8 +748,14 @@ export class WebRTCManager {
       };
     }
 
+    // Adiciona o vídeo primeiro e depois o áudio da tela em cada PeerConnection
+    const orderedTracks = [
+      ...this.screenStream.getVideoTracks(),
+      ...this.screenStream.getAudioTracks(),
+    ];
+
     for (const [peerId, pc] of this.peerConnections.entries()) {
-      for (const track of this.screenStream.getTracks()) {
+      for (const track of orderedTracks) {
         const sender = pc.addTrack(track, this.screenStream);
         if (track.kind === 'video') {
           await this.applyBitrateLimit(sender, preset.bitrateKbps, preset.fps);
@@ -794,7 +814,6 @@ export class WebRTCManager {
       clearInterval(this.antiEchoInterval);
       this.antiEchoInterval = null;
     }
-    this.screenAudioGainNode = null;
 
     if (!this.screenStream && !this.rawScreenStream) return;
 
@@ -862,6 +881,7 @@ export class WebRTCManager {
       pc.close();
       this.peerConnections.delete(peerId);
     }
+    this.peerMicStreamIds.delete(peerId);
     this.makingOffer.delete(peerId);
     this.ignoreOffer.delete(peerId);
     this.pendingCandidates.delete(peerId);
@@ -877,7 +897,7 @@ export class WebRTCManager {
       this.antiEchoInterval = null;
     }
     this.remoteVoiceAnalysers.clear();
-    this.screenAudioGainNode = null;
+    this.peerMicStreamIds.clear();
     this.onRemoteSpeakingChange?.([]);
 
     if (this.rawScreenStream) {

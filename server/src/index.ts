@@ -277,12 +277,26 @@ function broadcastServerUpdated(server: DBServer) {
 }
 
 app.get('/download/windows', (req, res) => {
-  const exePath = path.resolve(__dirname, '..', '..', 'client', 'release', 'Janjacord-Windows.exe');
+  const exePath = path.resolve(__dirname, '..', '..', 'client', 'release', 'Jolt-Windows.exe');
   if (fs.existsSync(exePath)) {
-    return res.download(exePath, 'Janjacord-Windows.exe');
+    return res.download(exePath, 'Jolt-Windows.exe');
   }
   // Se estiver no Render (que só roda a pasta server), redireciona para a release pública no GitHub
-  res.redirect('https://github.com/ErickSantana10/janjacord/releases/download/v1.0.0/Janjacord-Windows.exe');
+  res.redirect('https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe');
+});
+
+app.get('/api/version', (_req, res) => {
+  res.json({
+    name: 'Jolt',
+    version: '1.2.0',
+    downloadUrl: 'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe',
+    changelog: [
+      'Correção completa do áudio da transmissão de tela (WASAPI Loopback + elemento de áudio dedicado)',
+      'Novo nome e identidade visual: Jolt',
+      'Botão de Atualização Automática integrada no App Desktop e Web',
+      'Seletor de Microfone e Fone estilo Discord + Tela Cheia na transmissão',
+    ],
+  });
 });
 
 app.get('/api/health', (req, res) => {

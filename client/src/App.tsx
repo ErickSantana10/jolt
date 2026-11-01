@@ -27,8 +27,11 @@ import {
   X,
   Check,
   Monitor,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import {
+  APP_VERSION,
   DEFAULT_AUDIO_SETTINGS,
   type Channel,
   type Message,
@@ -51,7 +54,7 @@ interface RemoteStreamItem {
 }
 
 const DESKTOP_APP_DOWNLOAD_URL =
-  'https://github.com/ErickSantana10/janjacord/releases/download/v1.0.0/Janjacord-Windows.exe';
+  'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -104,6 +107,12 @@ export const App: React.FC = () => {
   const [selectedProfileUser, setSelectedProfileUser] = useState<User | ServerMemberInfo | null>(null);
   const [isScreenPickerOpen, setIsScreenPickerOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updatePercent, setUpdatePercent] = useState(0);
+  const [updateTransferredMB, setUpdateTransferredMB] = useState('0.0');
+  const [updateTotalMB, setUpdateTotalMB] = useState('0.0');
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   // Media Room State (Watch together / Music DJ)
   const [mediaRoomState, setMediaRoomState] = useState<MediaRoomState | null>(null);
@@ -144,6 +153,34 @@ export const App: React.FC = () => {
   useEffect(() => {
     activeChannelRef.current = activeChannel;
   }, [activeChannel]);
+
+  useEffect(() => {
+    if (!window.electronAPI?.onUpdateProgress) return;
+    const unsubscribe = window.electronAPI.onUpdateProgress((data) => {
+      setUpdatePercent(data.percent);
+      setUpdateTransferredMB(data.transferredMB);
+      setUpdateTotalMB(data.totalMB);
+    });
+    return () => {
+      unsubscribe?.();
+    };
+  }, []);
+
+  const handleInstallAppUpdate = async () => {
+    setUpdateError(null);
+    if (isElectron && window.electronAPI?.installUpdate) {
+      setIsUpdating(true);
+      setUpdatePercent(1);
+      const res = await window.electronAPI.installUpdate(DESKTOP_APP_DOWNLOAD_URL);
+      if (!res.success) {
+        setIsUpdating(false);
+        setUpdateError(res.error || 'Erro ao baixar atualização.');
+      }
+    } else {
+      // No navegador web, recarrega limpando cache para puxar a versão mais recente
+      window.location.reload();
+    }
+  };
 
   useEffect(() => {
     const serverUrl =
@@ -1042,11 +1079,11 @@ export const App: React.FC = () => {
           >
             <img
               src="/logo.jpg"
-              alt="Janjacord"
+              alt="Jolt"
               className="w-8 h-8 rounded-xl object-cover shadow-md border border-violet-400/40"
             />
             <div className="text-left">
-              <div className="text-xs font-black tracking-tight leading-none text-white">Janjacord</div>
+              <div className="text-xs font-black tracking-tight leading-none text-white">Jolt</div>
               <div className="text-[10px] text-violet-300/80 font-semibold flex items-center gap-1 mt-0.5">
                 <Home className="w-2.5 h-2.5" />
                 <span>Início</span>
@@ -1122,12 +1159,25 @@ export const App: React.FC = () => {
             </div>
           )}
 
+          {/* Botão Atualizar App (Visível tanto no App Desktop quanto no Navegador!) */}
+          <button
+            onClick={() => {
+              setUpdateError(null);
+              setIsUpdateModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#170f2b] hover:bg-violet-600/25 border border-violet-500/35 text-violet-200 hover:text-white text-xs font-extrabold tracking-wide shadow-sm transition cursor-pointer"
+            title="Verificar e instalar a atualização mais recente do Jolt"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-violet-400 ${isUpdating ? 'animate-spin' : ''}`} />
+            <span>{isUpdating ? `Atualizando ${updatePercent}%` : 'Atualizar App'}</span>
+          </button>
+
           {/* Botão Baixar App para Windows (.exe) — Visível no Site */}
           {!isElectron && (
             <button
               onClick={() => setIsDownloadModalOpen(true)}
               className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-black tracking-wide shadow-lg shadow-violet-600/30 transition cursor-pointer"
-              title="Baixar Aplicativo Janjacord para Windows (.exe)"
+              title="Baixar Aplicativo Jolt para Windows (.exe)"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Baixar App</span>
@@ -1294,15 +1344,15 @@ export const App: React.FC = () => {
             <div className="flex items-center gap-4">
               <img
                 src="/logo.jpg"
-                alt="Janjacord"
+                alt="Jolt"
                 className="w-16 h-16 rounded-2xl object-cover border-2 border-violet-400/50 shadow-xl"
               />
               <div>
                 <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
                   Windows 10 / 11 (64-bit)
                 </span>
-                <h3 className="text-lg font-black text-white mt-1">Janjacord para Windows</h3>
-                <p className="text-xs text-violet-300/70">Versão Desktop Oficial (.exe)</p>
+                <h3 className="text-lg font-black text-white mt-1">Jolt para Windows</h3>
+                <p className="text-xs text-violet-300/70">Versão Desktop Oficial v{APP_VERSION} (.exe)</p>
               </div>
             </div>
 
@@ -1321,7 +1371,7 @@ export const App: React.FC = () => {
               </div>
               <div className="flex items-center gap-2.5">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Sincronizado em tempo real com os usuários do navegador</span>
+                <span>Botão de atualização em 1 clique direto pelo aplicativo</span>
               </div>
             </div>
 
@@ -1334,13 +1384,136 @@ export const App: React.FC = () => {
                 className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-sm font-black tracking-wide shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2.5 transition cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-                <span>Baixar Janjacord-Windows.exe</span>
+                <span>Baixar Jolt-Windows.exe</span>
               </a>
               <div className="text-[11px] text-center text-violet-300/50 flex items-center justify-center gap-1.5">
                 <Monitor className="w-3.5 h-3.5" />
                 <span>Executável portátil — basta baixar e abrir, sem instalação complexa!</span>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Atualização Automática do App (Atualizar App) */}
+      {isUpdateModalOpen && (
+        <div
+          className="fixed inset-0 z-[95] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
+          onClick={() => {
+            if (!isUpdating) setIsUpdateModalOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-[#120b22] border border-violet-500/40 rounded-3xl p-6 shadow-2xl shadow-violet-950/70 space-y-5 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {!isUpdating && (
+              <button
+                onClick={() => setIsUpdateModalOpen(false)}
+                className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <img
+                  src="/logo.jpg"
+                  alt="Jolt"
+                  className="w-16 h-16 rounded-2xl object-cover border-2 border-violet-400/50 shadow-xl"
+                />
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-violet-600 border-2 border-[#120b22] flex items-center justify-center text-white">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Versão Atual: v{APP_VERSION}
+                </span>
+                <h3 className="text-lg font-black text-white mt-1">Central de Atualização Jolt</h3>
+                <p className="text-xs text-violet-300/70">
+                  {isElectron
+                    ? 'Baixe e instale a versão mais recente sem precisar fechar manualmente'
+                    : 'Sincronize seu navegador ou baixe a última versão do App Desktop'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-[#0b0714] border border-violet-500/20 rounded-2xl p-4 space-y-2 text-xs text-slate-200">
+              <div className="text-[11px] font-black uppercase tracking-wider text-violet-300 mb-1">
+                Novidades desta versão (v{APP_VERSION}):
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>Áudio de Transmissão de Tela corrigido (WASAPI Loopback nativo + player dedicado)</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>Configurações de Voz & Vídeo estilo Discord (seletor de Microfone e Fone + Teste de Mic)</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>Modo Tela Cheia nas transmissões e participantes sempre alinhados em ordem fixa</span>
+              </div>
+            </div>
+
+            {updateError && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/35 text-xs text-rose-300 font-semibold">
+                {updateError}
+              </div>
+            )}
+
+            {isUpdating ? (
+              <div className="space-y-2.5 bg-[#0b0714] p-4 rounded-2xl border border-violet-500/30">
+                <div className="flex items-center justify-between text-xs font-extrabold">
+                  <span className="text-violet-300 flex items-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-fuchsia-400" />
+                    Baixando nova versão do Jolt...
+                  </span>
+                  <span className="text-white font-mono">{updatePercent}%</span>
+                </div>
+                <div className="w-full h-3 bg-[#1a112e] rounded-full overflow-hidden border border-violet-500/20">
+                  <div
+                    className="h-full bg-gradient-to-r from-violet-600 via-purple-500 to-fuchsia-500 transition-all duration-150"
+                    style={{ width: `${Math.max(4, updatePercent)}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                  <span>
+                    {updateTransferredMB} MB / {updateTotalMB !== '0.0' ? `${updateTotalMB} MB` : '...'}
+                  </span>
+                  <span>O app reiniciará sozinho ao concluir</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleInstallAppUpdate}
+                  className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-sm font-black tracking-wide shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2.5 transition cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>
+                    {isElectron
+                      ? 'Atualizar e Reiniciar Aplicativo Agora'
+                      : 'Recarregar Última Versão Web'}
+                  </span>
+                </button>
+
+                {!isElectron && (
+                  <a
+                    href={DESKTOP_APP_DOWNLOAD_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#19102c] hover:bg-[#23173d] border border-violet-500/30 text-violet-200 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-violet-400" />
+                    <span>Baixar Jolt-Windows.exe Atualizado</span>
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

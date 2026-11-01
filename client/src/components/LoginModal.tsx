@@ -1,14 +1,20 @@
-import React, { useState } from 'react';
-import { LogIn, UserPlus, Sparkles, Lock, AlertCircle, Download, Monitor } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LogIn, UserPlus, Sparkles, Lock, AlertCircle, Download, Monitor, Check } from 'lucide-react';
 
 interface LoginModalProps {
-  onLogin: (name: string, password: string, callback: (error?: string) => void) => void;
+  onLogin: (name: string, password: string, rememberMe: boolean, callback: (error?: string) => void) => void;
   onRegister: (
     name: string,
     password: string,
     avatarColor: string,
+    rememberMe: boolean,
     callback: (error?: string) => void
   ) => void;
+  initialName?: string;
+  initialPassword?: string;
+  initialRememberMe?: boolean;
+  isAutoReconnecting?: boolean;
+  onCancelAutoReconnect?: () => void;
   downloadUrl?: string;
 }
 
@@ -26,14 +32,25 @@ const AVATAR_COLORS = [
 export const LoginModal: React.FC<LoginModalProps> = ({
   onLogin,
   onRegister,
+  initialName = '',
+  initialPassword = '',
+  initialRememberMe = true,
+  isAutoReconnecting = false,
+  onCancelAutoReconnect,
   downloadUrl = 'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe',
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
+  const [name, setName] = useState(initialName);
+  const [password, setPassword] = useState(initialPassword);
+  const [rememberMe, setRememberMe] = useState(initialRememberMe);
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialName && !name) setName(initialName);
+    if (initialPassword && !password) setPassword(initialPassword);
+  }, [initialName, initialPassword]);
 
   const isElectron = Boolean(window.electronAPI?.isElectron);
 
@@ -49,12 +66,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     setLoading(true);
 
     if (mode === 'login') {
-      onLogin(name.trim(), password, (err) => {
+      onLogin(name.trim(), password, rememberMe, (err) => {
         setLoading(false);
         if (err) setError(err);
       });
     } else {
-      onRegister(name.trim(), password, selectedColor, (err) => {
+      onRegister(name.trim(), password, selectedColor, rememberMe, (err) => {
         setLoading(false);
         if (err) setError(err);
       });
@@ -192,20 +209,55 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             </div>
           )}
 
+          {/* Remember Me & Auto Login Toggle */}
+          <button
+            type="button"
+            onClick={() => setRememberMe((prev) => !prev)}
+            className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#0a0612]/90 border border-violet-500/20 hover:border-violet-500/40 transition text-left cursor-pointer"
+          >
+            <div
+              className={`w-5 h-5 rounded-lg flex items-center justify-center border transition shrink-0 ${
+                rememberMe
+                  ? 'bg-violet-600 border-violet-400 text-white shadow-sm shadow-violet-600/40'
+                  : 'bg-[#120b20] border-violet-500/30 text-transparent'
+              }`}
+            >
+              <Check className="w-3.5 h-3.5 stroke-[3]" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white">Manter conectado neste computador</div>
+              <div className="text-[11px] text-violet-300/60">
+                Lembra sua senha e entra direto sempre que abrir o Jolt
+              </div>
+            </div>
+          </button>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isAutoReconnecting}
             className="w-full py-3.5 px-4 bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-violet-600/30 transition flex items-center justify-center gap-2 text-sm cursor-pointer mt-2"
           >
             <Sparkles className="w-4 h-4" />
             <span>
-              {loading
+              {isAutoReconnecting
+                ? `Entrando automaticamente como ${name || initialName || 'sua conta'}...`
+                : loading
                 ? 'Conectando...'
                 : mode === 'login'
                 ? 'Entrar no Jolt'
                 : 'Criar Minha Conta'}
             </span>
           </button>
+
+          {isAutoReconnecting && onCancelAutoReconnect && (
+            <button
+              type="button"
+              onClick={onCancelAutoReconnect}
+              className="w-full py-2 text-xs font-semibold text-violet-300/80 hover:text-white transition cursor-pointer"
+            >
+              Trocar de conta
+            </button>
+          )}
 
           {/* Desktop App Download Banner (Visible on Web Browser) */}
           {!isElectron && (

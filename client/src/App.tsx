@@ -45,6 +45,7 @@ import {
   type ServerMemberInfo,
   type MediaRoomState,
   type AudioSettings,
+  type SavedAuthData,
 } from './types';
 
 interface RemoteStreamItem {
@@ -99,6 +100,11 @@ export const App: React.FC = () => {
 
   // Modals
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [savedLoginName, setSavedLoginName] = useState<string>('');
+  const [savedLoginPassword, setSavedLoginPassword] = useState<string>('');
+  const [savedRememberMe, setSavedRememberMe] = useState<boolean>(true);
+  const [isAutoReconnecting, setIsAutoReconnecting] = useState<boolean>(false);
+  const autoReconnectCancelledRef = useRef<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isCreateServerOpen, setIsCreateServerOpen] = useState(false);
   const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false);
@@ -224,38 +230,118 @@ export const App: React.FC = () => {
       socket.emit('user:update-state', { isScreenSharing: false });
     };
 
-    const restoreSession = () => {
-      const savedUserId = localStorage.getItem('janjacord_user_id');
-      if (savedUserId) {
-        socket.emit('auth:session', { userId: savedUserId }, (res: { success: boolean; user?: any; state?: any }) => {
-          if (res.success && res.user && res.state) {
-            const u: User = {
-              ...res.user,
-              name: res.user.name || res.user.displayName || res.user.username,
-              tag: res.user.tag || '001',
-            };
-            setCurrentUser(u);
-            setServers(res.state.servers || []);
-            setAllServerMembers(res.state.allServerMembers || []);
-            setMessages(res.state.messages || []);
-            setDmMessages(res.state.dmMessages || []);
-            setFriends(res.state.friends || []);
-            setOnlineUsers(deduplicateOnlineUsers(res.state.onlineUsers || []));
-            setIsAuthenticated(true);
+    const applyAuthenticatedResponse = (res: { user: any; state: any }) => {
+      const u: User = {
+        ...res.user,
+        name: res.user.name || res.user.displayName || res.user.username,
+        tag: res.user.tag || '001',
+      };
+      setCurrentUser(u);
+      setServers(res.state.servers || []);
+      setAllServerMembers(res.state.allServerMembers || []);
+      setMessages(res.state.messages || []);
+      setDmMessages(res.state.dmMessages || []);
+      setFriends(res.state.friends || []);
+      setOnlineUsers(deduplicateOnlineUsers(res.state.onlineUsers || []));
+      setIsAuthenticated(true);
+      setIsAutoReconnecting(false);
 
-            if (activeChannelRef.current?.type === 'media') {
-              socket.emit('media:join-room', { channelId: activeChannelRef.current.id });
-              socket.emit('media:get-state', { channelId: activeChannelRef.current.id }, (mRes: any) => {
-                if (mRes?.success && mRes.state) {
-                  setMediaRoomState(mRes.state);
-                }
-              });
-            }
-          } else {
-            localStorage.removeItem('janjacord_user_id');
-            setIsAuthenticated(false);
+      if (activeChannelRef.current?.type === 'media') {
+        socket.emit('media:join-room', { channelId: activeChannelRef.current.id });
+        socket.emit('media:get-state', { channelId: activeChannelRef.current.id }, (mRes: any) => {
+          if (mRes?.success && mRes.state) {
+            setMediaRoomState(mRes.state);
           }
         });
+      }
+    };
+
+    const loadSavedAuth = async (): Promise<SavedAuthData | null> => {
+      try {
+        if (window.electronAPI?.getSavedAuth) {
+          const diskAuth = await window.electronAPI.getSavedAuth();
+          if (diskAuth && (diskAuth.userId || diskAuth.name)) {
+            return diskAuth;
+          }
+        }
+      } catch {}
+
+      try {
+        const raw = localStorage.getItem('jolt_saved_auth');
+        if (raw) {
+          return JSON.parse(raw);
+        }
+      } catch {}
+
+      const legacyUserId = localStorage.getItem('janjacord_user_id');
+      if (legacyUserId) {
+        return { userId: legacyUserId, rememberMe: true, autoLogin: true };
+      }
+      return null;
+    };
+
+    const restoreSession = async () => {
+      if (autoReconnectCancelledRef.current) return;
+      const savedAuth = await loadSavedAuth();
+      if (!savedAuth) return;
+
+      if (savedAuth.name) setSavedLoginName(savedAuth.name);
+      if (savedAuth.password) setSavedLoginPassword(savedAuth.password);
+      if (savedAuth.rememberMe !== undefined) setSavedRememberMe(savedAuth.rememberMe);
+
+      // Se o usuário clicou em Sair manualmente, deixa nome/senha preenchidos mas não força entrada automática
+      if (savedAuth.autoLogin === false) {
+        setIsAutoReconnecting(false);
+        return;
+      }
+
+      const tryPasswordAutoLogin = () => {
+        if (autoReconnectCancelledRef.current) {
+          setIsAutoReconnecting(false);
+          return;
+        }
+        if (savedAuth.name && savedAuth.password) {
+          setIsAutoReconnecting(true);
+          socket.emit(
+            'auth:login',
+            { name: savedAuth.name, password: savedAuth.password },
+            async (loginRes: { success: boolean; user?: any; state?: any }) => {
+              if (loginRes.success && loginRes.user && loginRes.state) {
+                const updatedAuth: SavedAuthData = {
+                  ...savedAuth,
+                  userId: loginRes.user.id,
+                  autoLogin: true,
+                };
+                localStorage.setItem('janjacord_user_id', loginRes.user.id);
+                localStorage.setItem('jolt_saved_auth', JSON.stringify(updatedAuth));
+                await window.electronAPI?.saveAuth?.(updatedAuth);
+                applyAuthenticatedResponse({ user: loginRes.user, state: loginRes.state });
+              } else {
+                setIsAutoReconnecting(false);
+              }
+            }
+          );
+        } else {
+          setIsAutoReconnecting(false);
+        }
+      };
+
+      if (savedAuth.userId) {
+        setIsAutoReconnecting(true);
+        socket.emit(
+          'auth:session',
+          { userId: savedAuth.userId },
+          (res: { success: boolean; user?: any; state?: any }) => {
+            if (res.success && res.user && res.state) {
+              applyAuthenticatedResponse({ user: res.user, state: res.state });
+            } else {
+              // Se a sessão rápida por ID não encontrar ou tiver reiniciado, faz login automático com a senha salva!
+              tryPasswordAutoLogin();
+            }
+          }
+        );
+      } else if (savedAuth.name && savedAuth.password) {
+        tryPasswordAutoLogin();
       }
     };
 
@@ -430,10 +516,44 @@ export const App: React.FC = () => {
   }, []);
 
   // Auth Handlers
-  const handleLogin = (name: string, password: string, callback: (error?: string) => void) => {
-    socketRef.current?.emit('auth:login', { name, password }, (res: { success: boolean; error?: string; user?: any; state?: any }) => {
+  const persistCredentials = async (userId: string, name: string, password: string, rememberMe: boolean) => {
+    setSavedRememberMe(rememberMe);
+    if (rememberMe) {
+      setSavedLoginName(name);
+      setSavedLoginPassword(password);
+      const data: SavedAuthData = {
+        userId,
+        name,
+        password,
+        rememberMe: true,
+        autoLogin: true,
+      };
+      localStorage.setItem('janjacord_user_id', userId);
+      localStorage.setItem('jolt_saved_auth', JSON.stringify(data));
+      try {
+        await window.electronAPI?.saveAuth?.(data);
+      } catch {}
+    } else {
+      setSavedLoginName('');
+      setSavedLoginPassword('');
+      localStorage.removeItem('janjacord_user_id');
+      localStorage.removeItem('jolt_saved_auth');
+      try {
+        await window.electronAPI?.clearSavedAuth?.();
+      } catch {}
+    }
+  };
+
+  const handleLogin = (
+    name: string,
+    password: string,
+    rememberMe: boolean,
+    callback: (error?: string) => void
+  ) => {
+    autoReconnectCancelledRef.current = false;
+    socketRef.current?.emit('auth:login', { name, password }, async (res: { success: boolean; error?: string; user?: any; state?: any }) => {
       if (res.success && res.user && res.state) {
-        localStorage.setItem('janjacord_user_id', res.user.id);
+        await persistCredentials(res.user.id, name, password, rememberMe);
         const u: User = { ...res.user, name: res.user.name || res.user.displayName || res.user.username, tag: res.user.tag || '001' };
         setCurrentUser(u);
         setServers(res.state.servers || []);
@@ -443,6 +563,7 @@ export const App: React.FC = () => {
         setFriends(res.state.friends || []);
         setOnlineUsers(deduplicateOnlineUsers(res.state.onlineUsers || []));
         setIsAuthenticated(true);
+        setIsAutoReconnecting(false);
         callback();
       } else {
         callback(res.error || 'Erro ao entrar na conta.');
@@ -454,14 +575,16 @@ export const App: React.FC = () => {
     name: string,
     password: string,
     avatarColor: string,
+    rememberMe: boolean,
     callback: (error?: string) => void
   ) => {
+    autoReconnectCancelledRef.current = false;
     socketRef.current?.emit(
       'auth:register',
       { name, password, avatarColor },
-      (res: { success: boolean; error?: string; user?: any; state?: any }) => {
+      async (res: { success: boolean; error?: string; user?: any; state?: any }) => {
         if (res.success && res.user && res.state) {
-          localStorage.setItem('janjacord_user_id', res.user.id);
+          await persistCredentials(res.user.id, name, password, rememberMe);
           const u: User = { ...res.user, name: res.user.name || res.user.displayName || res.user.username, tag: res.user.tag || '001' };
           setCurrentUser(u);
           setServers(res.state.servers || []);
@@ -471,6 +594,7 @@ export const App: React.FC = () => {
           setFriends(res.state.friends || []);
           setOnlineUsers(deduplicateOnlineUsers(res.state.onlineUsers || []));
           setIsAuthenticated(true);
+          setIsAutoReconnecting(false);
           callback();
         } else {
           callback(res.error || 'Erro ao criar conta.');
@@ -479,8 +603,24 @@ export const App: React.FC = () => {
     );
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    autoReconnectCancelledRef.current = true;
+    setIsAutoReconnecting(false);
     localStorage.removeItem('janjacord_user_id');
+    try {
+      const raw = localStorage.getItem('jolt_saved_auth');
+      if (raw) {
+        const parsed: SavedAuthData = JSON.parse(raw);
+        const updated: SavedAuthData = { ...parsed, userId: undefined, autoLogin: false };
+        localStorage.setItem('jolt_saved_auth', JSON.stringify(updated));
+        await window.electronAPI?.saveAuth?.(updated);
+      } else if (window.electronAPI?.getSavedAuth) {
+        const disk = await window.electronAPI.getSavedAuth();
+        if (disk) {
+          await window.electronAPI.saveAuth?.({ ...disk, userId: undefined, autoLogin: false });
+        }
+      }
+    } catch {}
     setIsAuthenticated(false);
     setCurrentUser(null);
     setCurrentServerId(null);
@@ -960,6 +1100,14 @@ export const App: React.FC = () => {
         <LoginModal
           onLogin={handleLogin}
           onRegister={handleRegister}
+          initialName={savedLoginName}
+          initialPassword={savedLoginPassword}
+          initialRememberMe={savedRememberMe}
+          isAutoReconnecting={isAutoReconnecting}
+          onCancelAutoReconnect={() => {
+            autoReconnectCancelledRef.current = true;
+            setIsAutoReconnecting(false);
+          }}
           downloadUrl={DESKTOP_APP_DOWNLOAD_URL}
         />
       )}

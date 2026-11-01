@@ -11,4 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('app:update-progress', listener);
     return () => ipcRenderer.removeListener('app:update-progress', listener);
   },
+  getSavedAuth: () => ipcRenderer.invoke('auth:get-saved'),
+  saveAuth: (data) => ipcRenderer.invoke('auth:save', data),
+  clearSavedAuth: () => ipcRenderer.invoke('auth:clear'),
 });

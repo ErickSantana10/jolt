@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 
 export type StreamQualityPreset = 'potato' | 'balanced' | 'gamer';
 
@@ -17,6 +17,14 @@ export interface UpdateProgressInfo {
   totalMB: string;
 }
 
+export interface SavedAuthData {
+  userId?: string;
+  name?: string;
+  password?: string;
+  rememberMe?: boolean;
+  autoLogin?: boolean;
+}
+
 declare global {
   interface Window {
     electronAPI?: {
@@ -26,6 +34,9 @@ declare global {
       openExternal: (url: string) => Promise<void>;
       installUpdate?: (downloadUrl?: string) => Promise<{ success: boolean; error?: string }>;
       onUpdateProgress?: (callback: (data: UpdateProgressInfo) => void) => () => void;
+      getSavedAuth?: () => Promise<SavedAuthData | null>;
+      saveAuth?: (data: SavedAuthData) => Promise<{ success: boolean }>;
+      clearSavedAuth?: () => Promise<{ success: boolean }>;
     };
   }
 }

@@ -5,6 +5,44 @@ const https = require('https');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+// Define pasta fixa no AppData do Windows para nunca perder sessão/localStorage entre atualizações do .exe portátil
+const PERSISTENT_DATA_DIR = path.join(app.getPath('appData'), 'JoltDesktop');
+try {
+  if (!fs.existsSync(PERSISTENT_DATA_DIR)) {
+    fs.mkdirSync(PERSISTENT_DATA_DIR, { recursive: true });
+  }
+  app.setPath('userData', PERSISTENT_DATA_DIR);
+} catch (err) {
+  console.warn('[Electron] Falha ao fixar userData:', err);
+}
+
+const SAVED_AUTH_FILE = path.join(PERSISTENT_DATA_DIR, 'saved-auth.json');
+
+function readSavedAuthFromDisk() {
+  try {
+    if (fs.existsSync(SAVED_AUTH_FILE)) {
+      const raw = fs.readFileSync(SAVED_AUTH_FILE, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.warn('[Electron] Erro ao ler saved-auth.json:', err);
+  }
+  return null;
+}
+
+function writeSavedAuthToDisk(data) {
+  try {
+    if (!fs.existsSync(PERSISTENT_DATA_DIR)) {
+      fs.mkdirSync(PERSISTENT_DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(SAVED_AUTH_FILE, JSON.stringify(data || {}, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.warn('[Electron] Erro ao salvar saved-auth.json:', err);
+    return false;
+  }
+}
+
 // Ativa reprodução automática de áudio/vídeo e captura limpa de áudio do sistema (sem AEC cancelando o loopback!)
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch(
@@ -266,6 +304,26 @@ function setupScreenShareAndPermissions() {
     }
   });
 
+  // 5.1 Persistência nativa em disco para lembrar login/senha no PC mesmo entre atualizações
+  ipcMain.handle('auth:get-saved', async () => {
+    return readSavedAuthFromDisk();
+  });
+
+  ipcMain.handle('auth:save', async (_event, data) => {
+    return { success: writeSavedAuthToDisk(data) };
+  });
+
+  ipcMain.handle('auth:clear', async () => {
+    try {
+      if (fs.existsSync(SAVED_AUTH_FILE)) {
+        fs.unlinkSync(SAVED_AUTH_FILE);
+      }
+      return { success: true };
+    } catch {
+      return { success: false };
+    }
+  });
+
   // 6. Auto-Atualizador com 1 clique: baixa a nova versão do GitHub, substitui o executável e reinicia!
   ipcMain.handle('app:install-update', async (_event, { downloadUrl }) => {
     try {
@@ -283,6 +341,13 @@ function setupScreenShareAndPermissions() {
           mainWindow.webContents.send('app:update-progress', progress);
         }
       });
+
+      if (localServer) {
+        try {
+          localServer.close();
+          localServer = null;
+        } catch {}
+      }
 
       if (portableExe && fs.existsSync(portableExe)) {
         const oldBackupPath = portableExe + '.old';

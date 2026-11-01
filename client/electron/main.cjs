@@ -5,12 +5,13 @@ const https = require('https');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
-// Ativa reprodução automática de áudio/vídeo e captura de áudio do sistema (WASAPI Loopback)
+// Ativa reprodução automática de áudio/vídeo e captura limpa de áudio do sistema (sem AEC cancelando o loopback!)
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch(
   'enable-features',
-  'SystemLoopbackAsAecReference,PulseAudioLoopbackForScreenShare,WebRTCPipeWireCapturer'
+  'PulseAudioLoopbackForScreenShare,WebRTCPipeWireCapturer'
 );
+app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns,AudioServiceOutOfProcess');
 
 let mainWindow = null;
 let selectedSourceId = null;

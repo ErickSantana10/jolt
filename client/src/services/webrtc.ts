@@ -10,6 +10,7 @@ export class WebRTCManager {
   private socket: Socket;
   private peerConnections: Map<string, RTCPeerConnection> = new Map();
   private peerMicStreamIds: Map<string, string> = new Map();
+  private peerScreenStreams: Map<string, MediaStream> = new Map();
   private makingOffer: Map<string, boolean> = new Map();
   private ignoreOffer: Map<string, boolean> = new Map();
   private pendingCandidates: Map<string, RTCIceCandidateInit[]> = new Map();
@@ -126,6 +127,9 @@ export class WebRTCManager {
           await this.flushPendingCandidates(fromId, pc);
 
           const answer = await pc.createAnswer();
+          if (answer.sdp) {
+            answer.sdp = this.enhanceOpusSdp(answer.sdp);
+          }
           await pc.setLocalDescription(answer);
 
           this.socket.emit('webrtc:answer', {
@@ -300,59 +304,78 @@ export class WebRTCManager {
 
     pc.ontrack = (event) => {
       const remoteStream = event.streams[0] || new MediaStream([event.track]);
+      event.track.enabled = true;
 
-      // Identifica o primeiro stream somente de áudio como o microfone do participante;
-      // qualquer outro stream ou stream com vídeo é a transmissão de tela (com seu respectivo áudio!)
+      const existingScreenStream = this.peerScreenStreams.get(peerId);
+
+      // Identifica o primeiro stream somente de áudio (que não pertença ao stream de tela) como o microfone
       if (
         event.track.kind === 'audio' &&
         remoteStream.getVideoTracks().length === 0 &&
-        !this.peerMicStreamIds.has(peerId)
+        !this.peerMicStreamIds.has(peerId) &&
+        (!existingScreenStream || existingScreenStream.id !== remoteStream.id)
       ) {
         this.peerMicStreamIds.set(peerId, remoteStream.id);
       }
 
-      const isMicStream = this.peerMicStreamIds.get(peerId) === remoteStream.id && remoteStream.getVideoTracks().length === 0;
+      const isMicStream =
+        this.peerMicStreamIds.get(peerId) === remoteStream.id &&
+        remoteStream.getVideoTracks().length === 0;
       const isScreen =
         event.track.kind === 'video' ||
         remoteStream.getVideoTracks().length > 0 ||
         !isMicStream;
 
-      // Criamos uma nova instância MediaStream com todas as tracks atuais para que o React
-      // detecte imediatamente quando a track de áudio da tela se junta à track de vídeo!
-      const freshStream = new MediaStream(remoteStream.getTracks());
-      this.onRemoteStream?.(peerId, freshStream, isScreen);
-
-      if (!isScreen && event.track.kind === 'audio') {
-        this.registerRemoteVoiceForAntiEcho(peerId, freshStream);
+      if (isScreen) {
+        let targetScreenStream = remoteStream;
+        if (event.track.kind === 'video') {
+          this.peerScreenStreams.set(peerId, remoteStream);
+        } else if (event.track.kind === 'audio' && existingScreenStream) {
+          if (!existingScreenStream.getAudioTracks().some((t) => t.id === event.track.id)) {
+            existingScreenStream.addTrack(event.track);
+          }
+          targetScreenStream = existingScreenStream;
+        }
+        // Passa a instância NAtiva de MediaStream do WebRTC para o Chromium renderizar o áudio sem bloqueio!
+        this.onRemoteStream?.(peerId, targetScreenStream, true);
+      } else {
+        this.onRemoteStream?.(peerId, remoteStream, false);
+        if (event.track.kind === 'audio') {
+          this.registerRemoteVoiceForAntiEcho(peerId, remoteStream);
+        }
       }
 
       if (event.track.kind === 'video') {
         event.track.onended = () => {
+          this.peerScreenStreams.delete(peerId);
           this.onRemoteScreenRemoved?.(peerId);
         };
         event.track.onmute = () => {
           if (remoteStream.getVideoTracks().every((t) => t.readyState === 'ended' || t.muted)) {
             setTimeout(() => {
               if (remoteStream.getVideoTracks().every((t) => t.readyState === 'ended' || t.muted)) {
+                this.peerScreenStreams.delete(peerId);
                 this.onRemoteScreenRemoved?.(peerId);
               }
             }, 900);
           }
         };
         event.track.onunmute = () => {
-          this.onRemoteStream?.(peerId, new MediaStream(remoteStream.getTracks()), true);
+          this.onRemoteStream?.(peerId, this.peerScreenStreams.get(peerId) || remoteStream, true);
         };
       }
 
       remoteStream.onaddtrack = (e) => {
+        e.track.enabled = true;
         const nowHasVideo = e.track.kind === 'video' || remoteStream.getVideoTracks().length > 0;
         const streamIsScreen =
           nowHasVideo || this.peerMicStreamIds.get(peerId) !== remoteStream.id;
-        this.onRemoteStream?.(peerId, new MediaStream(remoteStream.getTracks()), streamIsScreen);
+        this.onRemoteStream?.(peerId, remoteStream, streamIsScreen);
       };
 
       remoteStream.onremovetrack = (e) => {
         if (e.track.kind === 'video' && remoteStream.getVideoTracks().length === 0) {
+          this.peerScreenStreams.delete(peerId);
           this.onRemoteScreenRemoved?.(peerId);
         }
       };
@@ -574,43 +597,31 @@ export class WebRTCManager {
   }
 
   /**
-   * Mantém a track nativa de áudio do sistema intacta (para evitar o bug de silêncio do WebAudio no Chromium)
-   * e aplica o gate Anti-Eco diretamente em `rawAudioTrack.enabled` sempre que um colega na call falar!
+   * Mantém a track nativa de áudio do sistema sempre ativa e desativa filtros de cancelamento de eco
+   * na track de loopback (evitando que o Chromium subtraia o próprio som do jogo/sistema!)
    */
   private setupAntiEchoOnScreenStream(rawStream: MediaStream): MediaStream {
-    const audioTracks = rawStream.getAudioTracks();
-    if (audioTracks.length === 0) {
-      return rawStream;
-    }
-
-    const screenAudioTrack = audioTracks[0];
-
     if (this.antiEchoInterval) {
       clearInterval(this.antiEchoInterval);
+      this.antiEchoInterval = null;
     }
 
-    const freqData = new Uint8Array(128);
-    this.antiEchoInterval = window.setInterval(() => {
-      if (screenAudioTrack.readyState !== 'live') return;
-
-      let remoteSpeakingNow = false;
-      for (const { analyser } of this.remoteVoiceAnalysers.values()) {
-        analyser.getByteFrequencyData(freqData);
-        let sum = 0;
-        for (let i = 0; i < freqData.length; i++) sum += freqData[i];
-        const avg = sum / freqData.length;
-        if (avg > 12) {
-          remoteSpeakingNow = true;
-          break;
-        }
-      }
-
-      // Silencia instantaneamente o loopback enquanto um amigo fala na call para não dar eco da voz dele
-      const shouldEnable = !remoteSpeakingNow;
-      if (screenAudioTrack.enabled !== shouldEnable) {
-        screenAudioTrack.enabled = shouldEnable;
-      }
-    }, 40);
+    const audioTracks = rawStream.getAudioTracks();
+    for (const track of audioTracks) {
+      track.enabled = true;
+      track
+        .applyConstraints({
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          // @ts-expect-error constraints especificas do Chromium para impedir que o AEC apague o som do sistema
+          googEchoCancellation: false,
+          googAutoGainControl: false,
+          googNoiseSuppression: false,
+          googHighpassFilter: false,
+        })
+        .catch(() => {});
+    }
 
     return rawStream;
   }
@@ -679,6 +690,11 @@ export class WebRTCManager {
             audio: {
               mandatory: {
                 chromeMediaSource: 'desktop',
+                echoCancellation: false,
+                googEchoCancellation: false,
+                googAutoGainControl: false,
+                googNoiseSuppression: false,
+                googHighpassFilter: false,
               },
             } as any,
             video: {
@@ -693,6 +709,7 @@ export class WebRTCManager {
           loopbackStream.getVideoTracks().forEach((vt) => vt.stop());
           const loopbackAudioTrack = loopbackStream.getAudioTracks()[0];
           if (loopbackAudioTrack) {
+            loopbackAudioTrack.enabled = true;
             acquiredStream.addTrack(loopbackAudioTrack);
           }
         } catch (loopbackErr) {
@@ -712,9 +729,14 @@ export class WebRTCManager {
               noiseSuppression: false,
               autoGainControl: false,
               suppressLocalAudioPlayback: false,
+              googEchoCancellation: false,
+              googAutoGainControl: false,
+              googNoiseSuppression: false,
+              googHighpassFilter: false,
             }
           : false,
         systemAudio: 'include',
+        windowAudio: 'system',
         selfBrowserSurface: 'exclude',
       } as any);
     }
@@ -843,17 +865,27 @@ export class WebRTCManager {
     this.rawScreenStream = null;
   }
 
+  private enhanceOpusSdp(sdp: string): string {
+    return sdp.replace(/a=fmtp:111 (.*)/g, (_match, params) => {
+      let updated = params;
+      if (!updated.includes('stereo=')) updated += ';stereo=1;sprop-stereo=1';
+      if (!updated.includes('maxaveragebitrate=')) updated += ';maxaveragebitrate=128000';
+      if (!updated.includes('usedtx=')) updated += ';usedtx=0';
+      return `a=fmtp:111 ${updated}`;
+    });
+  }
+
   private async renegotiate(peerId: string, pc?: RTCPeerConnection) {
     const conn = pc || this.peerConnections.get(peerId);
     if (!conn) return;
 
     try {
       this.makingOffer.set(peerId, true);
-      const offer = await conn.createOffer({
-        offerToReceiveAudio: true,
-        offerToReceiveVideo: true,
-      });
+      const offer = await conn.createOffer();
       if (conn.signalingState !== 'stable') return;
+      if (offer.sdp) {
+        offer.sdp = this.enhanceOpusSdp(offer.sdp);
+      }
       await conn.setLocalDescription(offer);
       this.socket.emit('webrtc:offer', {
         targetSocketId: peerId,
@@ -882,6 +914,7 @@ export class WebRTCManager {
       this.peerConnections.delete(peerId);
     }
     this.peerMicStreamIds.delete(peerId);
+    this.peerScreenStreams.delete(peerId);
     this.makingOffer.delete(peerId);
     this.ignoreOffer.delete(peerId);
     this.pendingCandidates.delete(peerId);
@@ -898,6 +931,7 @@ export class WebRTCManager {
     }
     this.remoteVoiceAnalysers.clear();
     this.peerMicStreamIds.clear();
+    this.peerScreenStreams.clear();
     this.onRemoteSpeakingChange?.([]);
 
     if (this.rawScreenStream) {

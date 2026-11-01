@@ -38,6 +38,7 @@ interface RemoteStreamItem {
   peerId: string;
   stream: MediaStream;
   isScreen: boolean;
+  updatedAt?: number;
 }
 
 interface VoiceRoomProps {
@@ -289,10 +290,14 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
       {/* Main Content Area: Stage + Optional Side Chat */}
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Stage / Grid Area */}
-        <div className="flex-1 p-5 overflow-y-auto flex flex-col items-center justify-center gap-5 min-h-0">
-          {/* MODO 1: TELA FOCADA (MODO TEATRO) */}
+        <div
+          className={`flex-1 overflow-y-auto flex flex-col items-center justify-center min-h-0 ${
+            focusedStream ? 'px-3 py-2 gap-2.5' : 'p-4 gap-4'
+          }`}
+        >
+          {/* MODO 1: TELA FOCADA / EXPANDIDA (Ocupa toda a área demarcada no palco) */}
           {focusedStream && (
-            <div className="w-full flex-1 flex flex-col items-center justify-center gap-4 min-h-0">
+            <div className="w-full h-full flex-1 flex flex-col items-center justify-between gap-2.5 min-h-0">
               {focusedStream === 'local' && localScreenStream ? (
                 <ScreenShareCard
                   stream={localScreenStream}
@@ -312,6 +317,7 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                   return (
                     <ScreenShareCard
                       stream={target.stream}
+                      updatedAt={target.updatedAt}
                       title={`Tela de ${peerUser?.name || peerUser?.displayName || 'Participante'}`}
                       isLocal={false}
                       muted={isDeafened}
@@ -324,8 +330,8 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                 })()
               )}
 
-              {/* Faixa compacta de participantes abaixo da tela em modo teatro */}
-              <div className="w-full max-w-5xl flex items-center justify-center gap-3 overflow-x-auto py-1 shrink-0">
+              {/* Faixa compacta de participantes abaixo da tela expandida */}
+              <div className="w-full max-w-6xl flex items-center justify-center gap-2.5 overflow-x-auto py-0.5 shrink-0">
                 {sortedUsersInRoom.map((user) => {
                   const isMe = user.id === currentUser?.id;
                   const speaking = isMe
@@ -337,6 +343,7 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                       user={user}
                       isMe={isMe}
                       speaking={speaking}
+                      compact={true}
                     />
                   );
                 })}
@@ -346,11 +353,11 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
 
           {/* MODO 2: PALCO COM TRANSMISSÃO DE TELA ATIVA (Transmissões em cima + Barra alinhada de participantes embaixo) */}
           {!focusedStream && hasAnyScreenShare && (
-            <div className="w-full max-w-6xl flex-1 flex flex-col items-center justify-center gap-5 min-h-0">
+            <div className="w-full max-w-6xl flex-1 flex flex-col items-center justify-center gap-4 min-h-0">
               {/* Área principal de telas compartilhadas */}
               <div
                 className={`w-full grid gap-4 items-center justify-center ${
-                  totalScreensCount === 1 ? 'grid-cols-1 max-w-4xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'
+                  totalScreensCount === 1 ? 'grid-cols-1 max-w-5xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'
                 }`}
               >
                 {isScreenSharing && localScreenStream && (
@@ -372,6 +379,7 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                     <ScreenShareCard
                       key={`${share.peerId}-screen`}
                       stream={share.stream}
+                      updatedAt={share.updatedAt}
                       title={`Tela de ${peerUser?.name || peerUser?.displayName || 'Participante'}`}
                       isLocal={false}
                       muted={isDeafened}
@@ -654,11 +662,14 @@ const ParticipantCompactTile: React.FC<{
   user: OnlineUser;
   isMe: boolean;
   speaking: boolean;
-}> = ({ user, isMe, speaking }) => {
+  compact?: boolean;
+}> = ({ user, isMe, speaking, compact = false }) => {
   const displayName = user.name || user.displayName;
   return (
     <div
-      className={`w-48 h-24 bg-[#130d21]/95 rounded-2xl border px-3.5 py-2.5 flex items-center gap-3 transition-all duration-150 shadow-lg shrink-0 ${
+      className={`${
+        compact ? 'w-44 h-16 px-3 py-1.5' : 'w-48 h-20 px-3.5 py-2'
+      } bg-[#130d21]/95 rounded-2xl border flex items-center gap-3 transition-all duration-150 shadow-lg shrink-0 ${
         speaking
           ? 'border-violet-400 ring-2 ring-violet-500/40 bg-[#19112b]'
           : 'border-violet-500/20 hover:border-violet-500/35'
@@ -669,13 +680,17 @@ const ParticipantCompactTile: React.FC<{
           <img
             src={user.avatarUrl}
             alt={displayName}
-            className={`w-12 h-12 rounded-full object-cover transition-transform duration-150 ${
+            className={`${
+              compact ? 'w-10 h-10' : 'w-11 h-11'
+            } rounded-full object-cover transition-transform duration-150 ${
               speaking ? 'ring-2 ring-violet-400 scale-105' : ''
             }`}
           />
         ) : (
           <div
-            className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-black text-white transition-transform duration-150 ${
+            className={`${
+              compact ? 'w-10 h-10 text-sm' : 'w-11 h-11 text-base'
+            } rounded-full flex items-center justify-center font-black text-white transition-transform duration-150 ${
               speaking ? 'ring-2 ring-violet-400 scale-105' : ''
             }`}
             style={{ backgroundColor: user.avatarColor }}
@@ -712,10 +727,11 @@ const ParticipantCompactTile: React.FC<{
 };
 
 /**
- * Card de Transmissão de Tela com suporte a Tela Cheia Nativa (Monitor Inteiro) + Modo Teatro + Volume Individual
+ * Card de Transmissão de Tela com suporte a Tela Cheia Nativa (Monitor Inteiro) + Modo Expandido Grande + Volume Individual
  */
 const ScreenShareCard: React.FC<{
   stream: MediaStream;
+  updatedAt?: number;
   title: string;
   isLocal: boolean;
   muted: boolean;
@@ -725,6 +741,7 @@ const ScreenShareCard: React.FC<{
   sinkId?: string;
 }> = ({
   stream,
+  updatedAt,
   title,
   isLocal,
   muted,
@@ -736,15 +753,19 @@ const ScreenShareCard: React.FC<{
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const lastAudioTrackIdsRef = useRef<string>('');
   const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
   const [streamVolume, setStreamVolume] = useState(100);
   const [localMuteStream, setLocalMuteStream] = useState(false);
+  const [needsUserAudioUnlock, setNeedsUserAudioUnlock] = useState(false);
 
   const audioTrackIds = stream
     .getAudioTracks()
     .map((t) => t.id)
     .join(',');
   const hasScreenAudio = stream.getAudioTracks().length > 0;
+  const effectiveMuted = isLocal || muted || localMuteStream || streamVolume === 0;
+  const combinedVol = Math.min(1, Math.max(0, (outputVolume / 100) * (streamVolume / 100)));
 
   useEffect(() => {
     const videoEl = videoRef.current;
@@ -752,9 +773,9 @@ const ScreenShareCard: React.FC<{
     if (videoEl.srcObject !== stream) {
       videoEl.srcObject = stream;
     }
-    videoEl.muted = true; // Vídeo sempre mudo; o áudio da transmissão toca no elemento <audio> dedicado abaixo
+    videoEl.muted = true; // Mantém o vídeo mudo para o elemento <audio> nativo abaixo controlar o som sem duplicar
     videoEl.play().catch(() => {});
-  }, [stream]);
+  }, [stream, updatedAt]);
 
   useEffect(() => {
     const audioEl = audioRef.current;
@@ -763,22 +784,51 @@ const ScreenShareCard: React.FC<{
     const audioTracks = stream.getAudioTracks();
     if (audioTracks.length === 0) {
       audioEl.srcObject = null;
+      lastAudioTrackIdsRef.current = '';
       return;
     }
 
-    const audioOnlyStream = new MediaStream(audioTracks);
-    audioEl.srcObject = audioOnlyStream;
-    const effectiveMuted = muted || localMuteStream || streamVolume === 0;
+    audioTracks.forEach((t) => {
+      t.enabled = true;
+    });
+
+    // IMPORTANTE: Passa a instância NAtiva `stream` do WebRTC diretamente para `audioEl.srcObject`
+    // (criar um `new MediaStream()` sintético no Chromium faz o WebRtcAudioRenderer ficar mudo!)
+    if (audioEl.srcObject !== stream || lastAudioTrackIdsRef.current !== audioTrackIds) {
+      lastAudioTrackIdsRef.current = audioTrackIds;
+      audioEl.srcObject = stream;
+    }
+
     audioEl.muted = effectiveMuted;
-    const combinedVol = Math.min(1, Math.max(0, (outputVolume / 100) * (streamVolume / 100)));
     audioEl.volume = combinedVol;
 
     if (sinkId && sinkId !== 'default' && 'setSinkId' in audioEl) {
       (audioEl as any).setSinkId(sinkId).catch(() => {});
     }
 
-    audioEl.play().catch(() => {});
-  }, [stream, audioTrackIds, isLocal, muted, localMuteStream, streamVolume, outputVolume, sinkId]);
+    audioEl
+      .play()
+      .then(() => {
+        setNeedsUserAudioUnlock(false);
+      })
+      .catch(() => {
+        if (!effectiveMuted) {
+          setNeedsUserAudioUnlock(true);
+        }
+      });
+  }, [stream, updatedAt, audioTrackIds, isLocal, effectiveMuted, combinedVol, sinkId]);
+
+  const handleManualAudioUnlock = () => {
+    const audioEl = audioRef.current;
+    if (!audioEl) return;
+    audioEl.srcObject = stream;
+    audioEl.muted = effectiveMuted;
+    audioEl.volume = combinedVol;
+    audioEl
+      .play()
+      .then(() => setNeedsUserAudioUnlock(false))
+      .catch(() => {});
+  };
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -804,13 +854,16 @@ const ScreenShareCard: React.FC<{
   return (
     <div
       ref={containerRef}
+      onClick={() => {
+        if (needsUserAudioUnlock) handleManualAudioUnlock();
+      }}
       onDoubleClick={handleToggleNativeFullscreen}
       className={`bg-black rounded-3xl overflow-hidden border-2 relative group shadow-2xl flex items-center justify-center transition-all ${
         isNativeFullscreen
           ? 'w-screen h-screen rounded-none border-0'
           : isFocused
-          ? 'w-full max-w-6xl aspect-video max-h-[68vh] border-violet-500/60 shadow-violet-950/50'
-          : 'w-full aspect-video max-h-[54vh] border-violet-500/50 shadow-violet-900/25'
+          ? 'w-full flex-1 h-full min-h-[380px] max-w-[98%] border-violet-500/65 shadow-violet-950/60'
+          : 'w-full aspect-video max-h-[62vh] border-violet-500/50 shadow-violet-900/25'
       }`}
     >
       <video
@@ -820,7 +873,29 @@ const ScreenShareCard: React.FC<{
         muted={true}
         className="w-full h-full object-contain bg-black"
       />
-      {!isLocal && <audio ref={audioRef} autoPlay className="hidden" />}
+      {!isLocal && (
+        <audio
+          ref={audioRef}
+          autoPlay
+          playsInline
+          className="w-0 h-0 opacity-0 pointer-events-none absolute"
+        />
+      )}
+
+      {/* Botão de desbloqueio caso o navegador bloqueie o autoplay de áudio antes de um clique */}
+      {!isLocal && needsUserAudioUnlock && hasScreenAudio && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleManualAudioUnlock();
+          }}
+          className="absolute z-20 px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-black shadow-2xl flex items-center gap-2 animate-bounce cursor-pointer"
+        >
+          <Volume2 className="w-4 h-4" />
+          <span>Clique para Ativar o Som da Transmissão</span>
+        </button>
+      )}
 
       {/* Badge sempre visível no canto superior esquerdo */}
       <div className="absolute top-3.5 left-4 flex items-center gap-2 pointer-events-none z-10">

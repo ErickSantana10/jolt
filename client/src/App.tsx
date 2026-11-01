@@ -51,6 +51,7 @@ interface RemoteStreamItem {
   peerId: string;
   stream: MediaStream;
   isScreen: boolean;
+  updatedAt?: number;
 }
 
 const DESKTOP_APP_DOWNLOAD_URL =
@@ -203,7 +204,7 @@ export const App: React.FC = () => {
     rtc.onRemoteStream = (peerId, stream, isScreen) => {
       setRemoteStreams((prev) => {
         const filtered = prev.filter((item) => !(item.peerId === peerId && item.isScreen === isScreen));
-        return [...filtered, { peerId, stream, isScreen }];
+        return [...filtered, { peerId, stream, isScreen, updatedAt: Date.now() }];
       });
       sounds.stopOutgoingRing();
       setCallingFriend(null);
@@ -886,6 +887,12 @@ export const App: React.FC = () => {
               isScreenSharing: true,
               streamQuality,
             });
+            if (stream.getAudioTracks().length === 0) {
+              showToast(
+                'Transmissão iniciada sem áudio. No navegador, escolha "Tela Cheia" ou "Guia" e marque "Compartilhar áudio do sistema".',
+                'info'
+              );
+            }
           }
         } catch (e) {
           console.warn('Compartilhamento cancelado:', e);

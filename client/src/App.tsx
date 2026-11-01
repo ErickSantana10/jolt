@@ -115,6 +115,9 @@ export const App: React.FC = () => {
   const [isScreenPickerOpen, setIsScreenPickerOpen] = useState(false);
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [latestGitHubVersion, setLatestGitHubVersion] = useState<string>(APP_VERSION);
+  const [hasUpdateAvailable, setHasUpdateAvailable] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updatePercent, setUpdatePercent] = useState(0);
   const [updateTransferredMB, setUpdateTransferredMB] = useState('0.0');
@@ -173,6 +176,34 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  const compareSemver = (remote: string, local: string): boolean => {
+    const r = remote.replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+    const l = local.replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(r.length, l.length); i++) {
+      const rv = r[i] || 0;
+      const lv = l[i] || 0;
+      if (rv > lv) return true;
+      if (rv < lv) return false;
+    }
+    return false;
+  };
+
+  const fetchLatestGitHubVersion = async (): Promise<string> => {
+    try {
+      const res = await fetch(
+        `https://raw.githubusercontent.com/ErickSantana10/jolt/main/client/package.json?t=${Date.now()}`,
+        { cache: 'no-store' }
+      );
+      if (res.ok) {
+        const pkg = await res.json();
+        if (pkg?.version && typeof pkg.version === 'string') {
+          return pkg.version.trim();
+        }
+      }
+    } catch {}
+    return APP_VERSION;
+  };
+
   const handleInstallAppUpdate = async () => {
     setUpdateError(null);
     if (isElectron && window.electronAPI?.installUpdate) {
@@ -188,6 +219,40 @@ export const App: React.FC = () => {
       window.location.reload();
     }
   };
+
+  const handleCheckAndAutoUpdate = async () => {
+    setUpdateError(null);
+    setIsUpdateModalOpen(true);
+    if (isUpdating) return;
+
+    setIsCheckingUpdate(true);
+    const remoteVer = await fetchLatestGitHubVersion();
+    setLatestGitHubVersion(remoteVer);
+    const newer = compareSemver(remoteVer, APP_VERSION);
+    setHasUpdateAvailable(newer);
+    setIsCheckingUpdate(false);
+
+    // Se houver uma versão mais nova no GitHub, já inicia o download e substituição automática!
+    if (newer) {
+      await handleInstallAppUpdate();
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const checkBg = async () => {
+      const remoteVer = await fetchLatestGitHubVersion();
+      if (!mounted) return;
+      setLatestGitHubVersion(remoteVer);
+      setHasUpdateAvailable(compareSemver(remoteVer, APP_VERSION));
+    };
+    checkBg();
+    const timer = window.setInterval(checkBg, 60000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const serverUrl =
@@ -1314,17 +1379,30 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Botão Atualizar App (Visível tanto no App Desktop quanto no Navegador!) */}
+          {/* Botão Atualizar App (Verifica no GitHub e baixa automaticamente se houver versão nova!) */}
           <button
-            onClick={() => {
-              setUpdateError(null);
-              setIsUpdateModalOpen(true);
-            }}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-[#170f2b] hover:bg-violet-600/25 border border-violet-500/35 text-violet-200 hover:text-white text-xs font-extrabold tracking-wide shadow-sm transition cursor-pointer"
-            title="Verificar e instalar a atualização mais recente do Jolt"
+            onClick={handleCheckAndAutoUpdate}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-extrabold tracking-wide shadow-sm transition cursor-pointer ${
+              hasUpdateAvailable
+                ? 'bg-gradient-to-r from-emerald-600/30 to-violet-600/30 hover:from-emerald-500/40 hover:to-violet-500/40 border-emerald-400/60 text-emerald-200 shadow-emerald-500/20'
+                : 'bg-[#170f2b] hover:bg-violet-600/25 border-violet-500/35 text-violet-200 hover:text-white'
+            }`}
+            title="Verificar no GitHub se há nova versão e atualizar automaticamente"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-violet-400 ${isUpdating ? 'animate-spin' : ''}`} />
-            <span>{isUpdating ? `Atualizando ${updatePercent}%` : 'Atualizar App'}</span>
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${
+                hasUpdateAvailable ? 'text-emerald-400' : 'text-violet-400'
+              } ${isUpdating || isCheckingUpdate ? 'animate-spin' : ''}`}
+            />
+            <span>
+              {isUpdating
+                ? `Atualizando ${updatePercent}%`
+                : isCheckingUpdate
+                ? 'Verificando...'
+                : hasUpdateAvailable
+                ? `Atualizar (v${latestGitHubVersion})`
+                : 'Atualizar App'}
+            </span>
           </button>
 
           {/* Botão Baixar App para Windows (.exe) — Visível no Site */}
@@ -1629,12 +1707,33 @@ export const App: React.FC = () => {
               </div>
             )}
 
+            {isCheckingUpdate ? (
+              <div className="p-4 rounded-2xl bg-[#0b0714] border border-violet-500/30 flex items-center justify-center gap-2.5 text-xs font-bold text-violet-300">
+                <RefreshCw className="w-4 h-4 animate-spin text-fuchsia-400" />
+                <span>Consultando GitHub por novas versões...</span>
+              </div>
+            ) : !isUpdating && !hasUpdateAvailable ? (
+              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5 text-xs font-bold text-emerald-300">
+                <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  Seu Jolt já está na versão mais recente do GitHub (v{APP_VERSION})!
+                </span>
+              </div>
+            ) : !isUpdating && hasUpdateAvailable ? (
+              <div className="p-3.5 rounded-2xl bg-violet-500/15 border border-violet-400/40 flex items-center justify-between text-xs font-bold text-violet-200">
+                <span>Nova versão encontrada no GitHub:</span>
+                <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
+                  v{latestGitHubVersion}
+                </span>
+              </div>
+            ) : null}
+
             {isUpdating ? (
               <div className="space-y-2.5 bg-[#0b0714] p-4 rounded-2xl border border-violet-500/30">
                 <div className="flex items-center justify-between text-xs font-extrabold">
                   <span className="text-violet-300 flex items-center gap-2">
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-fuchsia-400" />
-                    Baixando nova versão do Jolt...
+                    Baixando Jolt v{latestGitHubVersion} do GitHub...
                   </span>
                   <span className="text-white font-mono">{updatePercent}%</span>
                 </div>
@@ -1648,7 +1747,7 @@ export const App: React.FC = () => {
                   <span>
                     {updateTransferredMB} MB / {updateTotalMB !== '0.0' ? `${updateTotalMB} MB` : '...'}
                   </span>
-                  <span>O app reiniciará sozinho ao concluir</span>
+                  <span>Substituirá o .exe e reiniciará sozinho</span>
                 </div>
               </div>
             ) : (
@@ -1661,7 +1760,9 @@ export const App: React.FC = () => {
                   <RefreshCw className="w-4 h-4" />
                   <span>
                     {isElectron
-                      ? 'Atualizar e Reiniciar Aplicativo Agora'
+                      ? hasUpdateAvailable
+                        ? `Baixar e Instalar v${latestGitHubVersion} Agora`
+                        : `Reinstalar / Forçar Atualização (v${latestGitHubVersion})`
                       : 'Recarregar Última Versão Web'}
                   </span>
                 </button>

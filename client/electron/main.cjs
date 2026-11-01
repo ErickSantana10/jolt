@@ -362,57 +362,49 @@ function setupScreenShareAndPermissions() {
         } catch {}
       }
 
-      // Tenta substituição direta renomeando o executável antigo primeiro (permitido pelo Windows mesmo em execução)
-      let replacedDirectly = false;
-      try {
-        if (fs.existsSync(finalExePath)) {
-          const oldBackupPath = `${finalExePath}.old`;
-          try {
-            if (fs.existsSync(oldBackupPath)) {
-              fs.unlinkSync(oldBackupPath);
-            }
-          } catch {}
-          fs.renameSync(finalExePath, oldBackupPath);
-        }
-        fs.copyFileSync(tempDownloadPath, finalExePath);
-        try {
-          fs.unlinkSync(tempDownloadPath);
-        } catch {}
-        replacedDirectly = true;
-      } catch (err) {
-        console.warn('[Updater] Substituição direta bloqueada (usando script pós-saída):', err.message);
-      }
+      // Sempre usa um script PowerShell pós-fechamento para aguardar o encerramento total do .exe antigo,
+      // substituir o arquivo original no lugar sem NUNCA dar EBUSY e já abrir a versão nova!
+      const psScriptPath = path.join(PERSISTENT_DATA_DIR, 'jolt-replace-update.ps1');
+      const escapedTemp = tempDownloadPath.replace(/'/g, "''");
+      const escapedFinal = finalExePath.replace(/'/g, "''");
 
-      if (replacedDirectly) {
-        spawn(finalExePath, [], { detached: true, stdio: 'ignore' }).unref();
-        setTimeout(() => app.quit(), 300);
-        return { success: true };
-      }
-
-      // Se o arquivo de destino estava EBUSY/bloqueado, cria um script .cmd invisível que aguarda o app fechar (2s),
-      // substitui o .exe sem bloqueio e já abre a versão nova automaticamente!
-      const batchPath = path.join(PERSISTENT_DATA_DIR, 'jolt-updater.cmd');
-      const batchScript = [
-        '@echo off',
-        'timeout /t 2 /nobreak >nul',
-        `del /F /Q "${finalExePath}.old" >nul 2>&1`,
-        `move /Y "${finalExePath}" "${finalExePath}.old" >nul 2>&1`,
-        `copy /Y "${tempDownloadPath}" "${finalExePath}" >nul 2>&1`,
-        'if %ERRORLEVEL% EQU 0 (',
-        `  start "" "${finalExePath}"`,
-        `  del /F /Q "${tempDownloadPath}" >nul 2>&1`,
-        ') else (',
-        `  start "" "${tempDownloadPath}"`,
-        ')',
-        `del /F /Q "${finalExePath}.old" >nul 2>&1`,
+      const psScript = [
+        '$ErrorActionPreference = "SilentlyContinue"',
+        `\$tempFile = '${escapedTemp}'`,
+        `\$targetFile = '${escapedFinal}'`,
+        'Start-Sleep -Milliseconds 900',
+        'for ($i = 0; $i -lt 35; $i++) {',
+        '  try {',
+        '    if (Test-Path "$targetFile.old") { Remove-Item -Path "$targetFile.old" -Force -ErrorAction SilentlyContinue }',
+        '    Copy-Item -Path $tempFile -Destination $targetFile -Force -ErrorAction Stop',
+        '    if ($?) { break }',
+        '  } catch {',
+        '    try {',
+        '      Move-Item -Path $targetFile -Destination "$targetFile.old" -Force -ErrorAction Stop',
+        '      Copy-Item -Path $tempFile -Destination $targetFile -Force -ErrorAction Stop',
+        '      if ($?) { break }',
+        '    } catch {}',
+        '  }',
+        '  Start-Sleep -Milliseconds 400',
+        '}',
+        'if (Test-Path $targetFile) {',
+        '  Start-Process -FilePath $targetFile',
+        '  Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue',
+        '} else {',
+        '  Start-Process -FilePath $tempFile',
+        '}',
       ].join('\r\n');
 
-      fs.writeFileSync(batchPath, batchScript, 'utf-8');
-      spawn('cmd.exe', ['/c', batchPath], {
-        detached: true,
-        windowsHide: true,
-        stdio: 'ignore',
-      }).unref();
+      fs.writeFileSync(psScriptPath, psScript, 'utf-8');
+      spawn(
+        'powershell.exe',
+        ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', psScriptPath],
+        {
+          detached: true,
+          windowsHide: true,
+          stdio: 'ignore',
+        }
+      ).unref();
 
       setTimeout(() => app.quit(), 250);
       return { success: true };

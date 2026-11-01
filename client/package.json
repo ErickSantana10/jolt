@@ -1,7 +1,7 @@
 {
   "name": "jolt-desktop",
   "private": true,
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Jolt — Voz, Vídeo Sincronizado e Transmissão 60 FPS",
   "author": "Erick Santana",
   "type": "module",

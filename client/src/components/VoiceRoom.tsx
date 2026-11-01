@@ -291,110 +291,159 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Stage / Grid Area */}
         <div
-          className={`flex-1 overflow-y-auto flex flex-col items-center justify-center min-h-0 ${
-            focusedStream ? 'px-3 py-2 gap-2.5' : 'p-4 gap-4'
+          className={`flex-1 flex min-h-0 ${
+            focusedStream
+              ? 'p-2.5 overflow-hidden'
+              : 'overflow-y-auto p-4 items-center justify-center'
           }`}
         >
           {/* MODO UNIFICADO DE TRANSMISSÃO DE TELA (Nunca desmonta o player ao clicar em Expandir/Grade!) */}
           {hasAnyScreenShare && (
-            <div
-              className={`w-full flex-1 flex flex-col items-center min-h-0 ${
-                focusedStream
-                  ? 'h-full justify-between gap-2.5'
-                  : 'max-w-6xl justify-center gap-4'
-              }`}
-            >
-              {/* Área principal de telas compartilhadas */}
-              <div
-                className={
-                  focusedStream
-                    ? 'w-full flex-1 flex flex-col items-center justify-center min-h-0'
-                    : `w-full grid gap-4 items-center justify-center ${
-                        totalScreensCount === 1 ? 'grid-cols-1 max-w-5xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'
-                      }`
-                }
-              >
-                {isScreenSharing && localScreenStream && (
-                  <div
-                    className={
-                      focusedStream && focusedStream !== 'local'
-                        ? 'hidden'
-                        : 'w-full h-full flex items-center justify-center min-h-0'
-                    }
-                  >
-                    <ScreenShareCard
-                      key="local-screen"
-                      stream={localScreenStream}
-                      title={`SUA TELA (${QUALITY_PRESETS[streamQuality].name.toUpperCase()})`}
-                      isLocal={true}
-                      muted={true}
-                      isFocused={focusedStream === 'local'}
-                      onToggleFocus={() =>
-                        setFocusedStream((prev) => (prev === 'local' ? null : 'local'))
-                      }
-                      outputVolume={audioSettings.outputVolume}
-                      sinkId={audioSettings.outputDeviceId}
-                    />
-                  </div>
-                )}
-
-                {screenShares.map((share) => {
-                  const peerUser = sortedUsersInRoom.find((u) => u.socketId === share.peerId);
-                  const isThisFocused = focusedStream === share.peerId;
-                  const isHiddenByOtherFocus = Boolean(focusedStream && !isThisFocused);
-                  return (
+            focusedStream ? (
+              /* MODO EXPANDIDO: Tela grande à esquerda ocupando toda a altura + participantes organizados à direita */
+              <div className="w-full flex-1 flex flex-row items-stretch min-h-0 gap-3">
+                {/* Player Principal Expandido */}
+                <div className="flex-1 h-full min-h-0 min-w-0 flex items-center justify-center">
+                  {isScreenSharing && localScreenStream && (
                     <div
-                      key={`${share.peerId}-screen`}
                       className={
-                        isHiddenByOtherFocus
-                          ? 'hidden'
-                          : 'w-full h-full flex items-center justify-center min-h-0'
+                        focusedStream === 'local'
+                          ? 'w-full h-full flex items-center justify-center min-h-0'
+                          : 'hidden'
                       }
                     >
                       <ScreenShareCard
-                        stream={share.stream}
-                        updatedAt={share.updatedAt}
-                        title={`Tela de ${peerUser?.name || peerUser?.displayName || 'Participante'}`}
-                        isLocal={false}
-                        muted={isDeafened}
-                        isFocused={isThisFocused}
-                        onToggleFocus={() =>
-                          setFocusedStream((prev) => (prev === share.peerId ? null : share.peerId))
-                        }
+                        key="local-screen"
+                        stream={localScreenStream}
+                        title={`SUA TELA (${QUALITY_PRESETS[streamQuality].name.toUpperCase()})`}
+                        isLocal={true}
+                        muted={true}
+                        isFocused={true}
+                        onToggleFocus={() => setFocusedStream(null)}
                         outputVolume={audioSettings.outputVolume}
                         sinkId={audioSettings.outputDeviceId}
                       />
                     </div>
-                  );
-                })}
-              </div>
+                  )}
 
-              {/* Faixa simétrica e ordenada de participantes abaixo da transmissão */}
-              <div
-                className={
-                  focusedStream
-                    ? 'w-full max-w-6xl flex items-center justify-center gap-2.5 overflow-x-auto py-0.5 shrink-0'
-                    : 'w-full max-w-5xl flex flex-wrap items-center justify-center gap-3.5 pt-1 shrink-0'
-                }
-              >
-                {sortedUsersInRoom.map((user) => {
-                  const isMe = user.id === currentUser?.id;
-                  const speaking = isMe
-                    ? isSpeaking && !isMuted
-                    : remoteSpeakingPeers.includes(user.socketId) && !user.isMuted;
+                  {screenShares.map((share) => {
+                    const peerUser = sortedUsersInRoom.find((u) => u.socketId === share.peerId);
+                    const isThisFocused = focusedStream === share.peerId;
+                    return (
+                      <div
+                        key={`${share.peerId}-screen`}
+                        className={
+                          isThisFocused
+                            ? 'w-full h-full flex items-center justify-center min-h-0'
+                            : 'hidden'
+                        }
+                      >
+                        <ScreenShareCard
+                          stream={share.stream}
+                          updatedAt={share.updatedAt}
+                          title={`Tela de ${peerUser?.name || peerUser?.displayName || 'Participante'}`}
+                          isLocal={false}
+                          muted={false}
+                          isFocused={true}
+                          onToggleFocus={() => setFocusedStream(null)}
+                          outputVolume={audioSettings.outputVolume}
+                          sinkId={audioSettings.outputDeviceId}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
 
-                  return (
-                    <ParticipantCompactTile
-                      key={user.id}
-                      user={user}
-                      isMe={isMe}
-                      speaking={speaking}
-                      compact={Boolean(focusedStream)}
-                    />
-                  );
-                })}
+                {/* Sidebar dos Participantes à Direita */}
+                <div className="w-56 lg:w-64 bg-[#110a1f]/95 backdrop-blur-md rounded-2xl border border-violet-500/20 p-2.5 flex flex-col gap-2 shrink-0 overflow-hidden max-h-full">
+                  <div className="text-[11px] font-bold text-violet-300/80 px-2 py-1 uppercase tracking-wider flex items-center justify-between border-b border-violet-500/15 shrink-0">
+                    <span>Na chamada ({sortedUsersInRoom.length})</span>
+                    <span className="text-[10px] text-fuchsia-400 font-mono font-semibold">Ao Vivo</span>
+                  </div>
+                  <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-0.5">
+                    {sortedUsersInRoom.map((user) => {
+                      const isMe = user.id === currentUser?.id;
+                      const speaking = isMe
+                        ? isSpeaking && !isMuted
+                        : remoteSpeakingPeers.includes(user.socketId) && !user.isMuted;
+
+                      return (
+                        <ParticipantSidebarCard
+                          key={user.id}
+                          user={user}
+                          isMe={isMe}
+                          speaking={speaking}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* MODO GRADE: Grade central com participantes abaixo */
+              <div className="w-full flex-1 flex flex-col items-center justify-center max-w-6xl gap-4 min-h-0">
+                <div
+                  className={`w-full grid gap-4 items-center justify-center ${
+                    totalScreensCount === 1 ? 'grid-cols-1 max-w-5xl mx-auto' : 'grid-cols-1 lg:grid-cols-2'
+                  }`}
+                >
+                  {isScreenSharing && localScreenStream && (
+                    <div className="w-full h-full flex items-center justify-center min-h-0">
+                      <ScreenShareCard
+                        key="local-screen"
+                        stream={localScreenStream}
+                        title={`SUA TELA (${QUALITY_PRESETS[streamQuality].name.toUpperCase()})`}
+                        isLocal={true}
+                        muted={true}
+                        isFocused={false}
+                        onToggleFocus={() => setFocusedStream('local')}
+                        outputVolume={audioSettings.outputVolume}
+                        sinkId={audioSettings.outputDeviceId}
+                      />
+                    </div>
+                  )}
+
+                  {screenShares.map((share) => {
+                    const peerUser = sortedUsersInRoom.find((u) => u.socketId === share.peerId);
+                    return (
+                      <div key={`${share.peerId}-screen`} className="w-full h-full flex items-center justify-center min-h-0">
+                        <ScreenShareCard
+                          stream={share.stream}
+                          updatedAt={share.updatedAt}
+                          title={`Tela de ${peerUser?.name || peerUser?.displayName || 'Participante'}`}
+                          isLocal={false}
+                          muted={false}
+                          isFocused={false}
+                          onToggleFocus={() => setFocusedStream(share.peerId)}
+                          outputVolume={audioSettings.outputVolume}
+                          sinkId={audioSettings.outputDeviceId}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Faixa simétrica e ordenada de participantes abaixo da transmissão */}
+                <div className="w-full max-w-5xl flex flex-wrap items-center justify-center gap-3.5 pt-1 shrink-0">
+                  {sortedUsersInRoom.map((user) => {
+                    const isMe = user.id === currentUser?.id;
+                    const speaking = isMe
+                      ? isSpeaking && !isMuted
+                      : remoteSpeakingPeers.includes(user.socketId) && !user.isMuted;
+
+                    return (
+                      <ParticipantCompactTile
+                        key={user.id}
+                        user={user}
+                        isMe={isMe}
+                        speaking={speaking}
+                        compact={false}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )
           )}
 
           {/* MODO 3: SOMENTE VOZ (Grade simétrica centralizada e ordenada de participantes) */}
@@ -576,7 +625,7 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
       </div>
 
       {/* Bottom Floating Control Dock */}
-      <div className="pb-5 pt-2 flex justify-center z-10 shrink-0">
+      <div className={`flex justify-center z-10 shrink-0 ${focusedStream ? 'pb-2.5 pt-1' : 'pb-5 pt-2'}`}>
         <div className="bg-[#150e26]/95 backdrop-blur-xl border border-violet-500/25 px-6 py-3 rounded-2xl shadow-2xl shadow-violet-950/60 flex items-center gap-3.5">
           <button
             onClick={onToggleMute}
@@ -703,6 +752,77 @@ const ParticipantCompactTile: React.FC<{
             <span className="text-emerald-400 font-semibold">Falando...</span>
           ) : (
             <span>Na chamada</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Card vertical para os participantes na coluna direita quando a transmissão está expandida
+ */
+const ParticipantSidebarCard: React.FC<{
+  user: OnlineUser;
+  isMe: boolean;
+  speaking: boolean;
+}> = ({ user, isMe, speaking }) => {
+  const displayName = user.name || user.displayName;
+  return (
+    <div
+      className={`w-full p-2.5 rounded-xl border flex items-center gap-3 transition-all duration-150 ${
+        speaking
+          ? 'bg-[#1e1435] border-violet-400 ring-1 ring-violet-500/50 shadow-md shadow-violet-500/10'
+          : 'bg-[#140d24]/90 border-violet-500/15 hover:border-violet-500/30'
+      }`}
+    >
+      <div className="relative shrink-0">
+        {user.avatarUrl ? (
+          <img
+            src={user.avatarUrl}
+            alt={displayName}
+            className={`w-9 h-9 rounded-full object-cover transition-transform duration-150 ${
+              speaking ? 'ring-2 ring-emerald-400 scale-105' : ''
+            }`}
+          />
+        ) : (
+          <div
+            className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black text-white transition-transform duration-150 ${
+              speaking ? 'ring-2 ring-emerald-400 scale-105' : ''
+            }`}
+            style={{ backgroundColor: user.avatarColor }}
+          >
+            {displayName.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+
+        {user.isMuted && (
+          <div className="absolute -bottom-1 -right-1 bg-rose-500 text-white p-1 rounded-full border-2 border-[#140d24]">
+            <MicOff className="w-2.5 h-2.5" />
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-bold text-slate-100 truncate flex items-center gap-1.5">
+          <span className="truncate">{displayName}</span>
+          {isMe && <span className="text-[10px] text-violet-400 font-semibold shrink-0">(Você)</span>}
+        </div>
+        <div className="text-[11px] text-violet-300/70 truncate mt-0.5 flex items-center gap-1">
+          {user.isScreenSharing ? (
+            <span className="text-fuchsia-400 font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 animate-pulse" />
+              Transmitindo
+            </span>
+          ) : user.isMuted ? (
+            <span className="text-rose-400/80">Mutado</span>
+          ) : speaking ? (
+            <span className="text-emerald-400 font-semibold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              Falando...
+            </span>
+          ) : (
+            <span className="text-slate-400">Na chamada</span>
           )}
         </div>
       </div>
@@ -855,11 +975,11 @@ const ScreenShareCard: React.FC<{
         if (needsUserAudioUnlock) handleManualAudioUnlock();
       }}
       onDoubleClick={handleToggleNativeFullscreen}
-      className={`bg-black rounded-3xl overflow-hidden border-2 relative group shadow-2xl flex items-center justify-center transition-all ${
+      className={`bg-black rounded-2xl overflow-hidden border relative group shadow-2xl flex items-center justify-center transition-all ${
         isNativeFullscreen
           ? 'w-screen h-screen rounded-none border-0'
           : isFocused
-          ? 'w-full flex-1 h-full min-h-[380px] max-w-[98%] border-violet-500/65 shadow-violet-950/60'
+          ? 'w-full h-full max-h-full border-violet-500/40 shadow-violet-950/60'
           : 'w-full aspect-video max-h-[62vh] border-violet-500/50 shadow-violet-900/25'
       }`}
     >

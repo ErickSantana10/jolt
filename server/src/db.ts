@@ -11,7 +11,8 @@ export interface DBUser {
   id: string;
   name: string; // ex: fulaninho
   tag: string;  // ex: 001 ou 4 dígitos
-  password: string;
+  password: string; // hash scrypt (formato scrypt$salt$hash); contas antigas migram no login
+  sessionTokens?: string[]; // sha256 dos tokens de login automático
   avatarColor: string;
   avatarUrl?: string;
   bio?: string;
@@ -141,6 +142,11 @@ try {
 // Cache local em memória para leitura ultrarrápida (latência zero no Socket.IO)
 let memoryCache: DatabaseSchema | null = null;
 let saveDebounceTimer: NodeJS.Timeout | null = null;
+// Só sincroniza com o Supabase depois de ter carregado os dados de lá com sucesso.
+// Se o boot falhasse (timeout/cold start), o primeiro saveDB sobrescrevia a nuvem com o JSON local
+// desatualizado do repositório, apagando contas, servidores e mensagens.
+let remoteLoaded = false;
+let remoteRetryTimer: NodeJS.Timeout | null = null;
 
 function ensureDataDir() {
   const dir = path.dirname(DB_FILE);
@@ -193,6 +199,11 @@ export async function initDatabase(): Promise<void> {
 
     // Busca dados do Supabase
     const res = await pool.query("SELECT data FROM janjacord_store WHERE id = 'main';");
+    remoteLoaded = true;
+    if (remoteRetryTimer) {
+      clearTimeout(remoteRetryTimer);
+      remoteRetryTimer = null;
+    }
     if (res.rows.length > 0 && res.rows[0].data) {
       const remoteData = res.rows[0].data as DatabaseSchema;
       if (!remoteData.dmMessages) remoteData.dmMessages = [];
@@ -209,7 +220,13 @@ export async function initDatabase(): Promise<void> {
       console.log('[Supabase DB] Banco inicializado com os dados locais.');
     }
   } catch (err: any) {
-    console.error('[Supabase DB] Erro de inicialização (usando fallback local):', err.message);
+    console.error('[Supabase DB] Erro de inicialização (usando fallback local, nova tentativa em 30s):', err.message);
+    if (!remoteRetryTimer) {
+      remoteRetryTimer = setTimeout(() => {
+        remoteRetryTimer = null;
+        initDatabase().catch(() => {});
+      }, 30000);
+    }
   }
 }
 
@@ -232,7 +249,7 @@ export function saveDB(data: DatabaseSchema): void {
   }
 
   saveDebounceTimer = setTimeout(async () => {
-    if (!pool) return;
+    if (!pool || !remoteLoaded) return;
     try {
       await pool.query(`
         INSERT INTO janjacord_store (id, data, updated_at)

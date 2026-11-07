@@ -14,6 +14,12 @@ export class WebRTCManager {
   private makingOffer: Map<string, boolean> = new Map();
   private ignoreOffer: Map<string, boolean> = new Map();
   private pendingCandidates: Map<string, RTCIceCandidateInit[]> = new Map();
+  // Peers que precisam de nova oferta assim que a negociação atual terminar (evita perder tracks em corridas)
+  private pendingRenegotiation: Set<string> = new Set();
+  // Timers de tolerância para reconexão ICE antes de derrubar o peer
+  private iceFailureTimers: Map<string, number> = new Map();
+  // Preset ativo da transmissão (aplicado também em quem entra na sala depois)
+  private currentScreenPreset: StreamQualityPreset | null = null;
 
   private rawMicStream: MediaStream | null = null;
   private localStream: MediaStream | null = null;
@@ -120,14 +126,13 @@ export class WebRTCManager {
             return;
           }
 
-          if (offerCollision) {
-            await Promise.all([
-              pc.setLocalDescription({ type: 'rollback' }),
-              pc.setRemoteDescription(new RTCSessionDescription(offer)),
-            ]);
-          } else {
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          // Lado "polite": desfaz a própria oferta pendente antes de aceitar a do colega.
+          // A track que estava na oferta desfeita volta a ser negociada via onnegotiationneeded/pendingRenegotiation.
+          if (offerCollision && pc.signalingState === 'have-local-offer') {
+            await pc.setLocalDescription({ type: 'rollback' });
+            this.pendingRenegotiation.add(fromId);
           }
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
 
           await this.flushPendingCandidates(fromId, pc);
 
@@ -142,16 +147,9 @@ export class WebRTCManager {
             toPeerId: fromId,
             answer: pc.localDescription || answer,
           });
-
-          // Se estivermos compartilhando tela e o offer inicial do colega não tinha vídeo/áudio extra,
-          // renegociamos em seguida para enviar nossa transmissão completa (vídeo + som da tela)!
-          if (this.screenStream) {
-            setTimeout(() => {
-              if (pc.signalingState === 'stable') {
-                this.renegotiate(fromId, pc);
-              }
-            }, 250);
-          }
+          // Obs: se estivermos transmitindo e a oferta do colega não tinha m-lines de vídeo,
+          // o onnegotiationneeded dispara sozinho ao voltar para 'stable' e envia a tela.
+          // (O antigo setTimeout de 250ms aqui criava um loop infinito de ofertas quando 2 pessoas transmitiam.)
         } catch (err) {
           console.warn('[WebRTC] Erro ao processar offer:', err);
         }
@@ -184,18 +182,20 @@ export class WebRTCManager {
         const candidate = payload.candidate;
         if (!fromId || !candidate) return;
 
-        try {
-          if (this.ignoreOffer.get(fromId)) return;
-          const pc = this.getOrCreatePeerConnection(fromId);
-          if (pc.remoteDescription && pc.remoteDescription.type) {
+        // Nunca descarta candidatos só porque uma oferta foi ignorada: o flag ignoreOffer
+        // continuava true depois da colisão e todos os candidatos seguintes eram jogados fora,
+        // deixando espectadores sem conexão (tela preta) em alguns pares.
+        const pc = this.peerConnections.get(fromId);
+        if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+          try {
             await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          } else {
-            const list = this.pendingCandidates.get(fromId) || [];
-            list.push(candidate);
-            this.pendingCandidates.set(fromId, list);
+          } catch {
+            // Candidato obsoleto (ex.: pertencia a uma oferta ignorada durante colisão)
           }
-        } catch {
-          // Ignora candidatos ICE obsoletos durante renegociação
+        } else {
+          const list = this.pendingCandidates.get(fromId) || [];
+          list.push(candidate);
+          this.pendingCandidates.set(fromId, list);
         }
       }
     );
@@ -212,6 +212,20 @@ export class WebRTCManager {
     if (!targetSocketId || targetSocketId === this.socket.id) return;
     const pc = this.getOrCreatePeerConnection(targetSocketId);
     await this.renegotiate(targetSocketId, pc);
+  }
+
+  /**
+   * Fecha conexões com peers que não estão mais na sala atual (ex.: ao trocar de canal de voz
+   * sem desconectar, as conexões da sala antiga continuavam abertas recebendo/enviando a tela).
+   */
+  public closePeersExcept(keepPeerIds: string[]) {
+    const keep = new Set(keepPeerIds);
+    for (const peerId of Array.from(this.peerConnections.keys())) {
+      if (!keep.has(peerId)) {
+        this.closePeerConnection(peerId);
+        this.onPeerDisconnected?.(peerId);
+      }
+    }
   }
 
   private startRemoteSpeakingMonitor() {
@@ -292,10 +306,28 @@ export class WebRTCManager {
       orderedScreenTracks.forEach((track) => {
         const already = pc.getSenders().some((s) => s.track === track);
         if (!already) {
-          pc.addTrack(track, this.screenStream!);
+          const sender = pc.addTrack(track, this.screenStream!);
+          // Quem entra na sala depois também recebe o bitrate/FPS do preset escolhido
+          if (track.kind === 'video' && this.currentScreenPreset) {
+            const preset = QUALITY_PRESETS[this.currentScreenPreset];
+            this.applyBitrateLimit(sender, preset.bitrateKbps, preset.fps);
+          }
         }
       });
     }
+
+    // Toda mudança de tracks (mic, tela, ICE restart) dispara uma nova oferta automaticamente
+    pc.onnegotiationneeded = () => {
+      this.renegotiate(peerId, pc);
+    };
+
+    // Se uma oferta foi pedida enquanto outra negociação estava em andamento, envia assim que estabilizar
+    pc.onsignalingstatechange = () => {
+      if (pc.signalingState === 'stable' && this.pendingRenegotiation.has(peerId)) {
+        this.pendingRenegotiation.delete(peerId);
+        this.renegotiate(peerId, pc);
+      }
+    };
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -390,14 +422,34 @@ export class WebRTCManager {
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === 'failed') {
         try {
+          // restartIce() dispara onnegotiationneeded, que envia a oferta de reconexão
           pc.restartIce();
-          this.renegotiate(peerId, pc);
         } catch {}
       }
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      const state = pc.connectionState;
+      if (state === 'connected') {
+        const timer = this.iceFailureTimers.get(peerId);
+        if (timer) {
+          clearTimeout(timer);
+          this.iceFailureTimers.delete(peerId);
+        }
+      } else if (state === 'failed') {
+        // Antes o peer era fechado na hora, matando o ICE restart que acabou de começar.
+        // Agora dá 15s para a reconexão funcionar antes de desistir.
+        if (!this.iceFailureTimers.has(peerId)) {
+          const timer = window.setTimeout(() => {
+            this.iceFailureTimers.delete(peerId);
+            if (this.peerConnections.get(peerId) === pc && pc.connectionState !== 'connected') {
+              this.closePeerConnection(peerId);
+              this.onPeerDisconnected?.(peerId);
+            }
+          }, 15000);
+          this.iceFailureTimers.set(peerId, timer);
+        }
+      } else if (state === 'closed') {
         this.closePeerConnection(peerId);
         this.onPeerDisconnected?.(peerId);
       }
@@ -736,7 +788,11 @@ export class WebRTCManager {
         if (this.screenAudioContext?.state === 'suspended') {
           this.screenAudioContext.resume().catch(() => {});
         }
-        workletNode.port.postMessage(chunk);
+        // Copia para um ArrayBuffer próprio (offset 0): o Buffer do Node pode chegar com byteOffset ímpar
+        // vindo do pool interno, e `new Int16Array(buffer, offsetÍmpar)` lança RangeError no worklet,
+        // descartando o pacote (estalos/silêncio no som da live). Transferir evita outra cópia.
+        const aligned = new Uint8Array(chunk);
+        workletNode.port.postMessage(aligned, [aligned.buffer]);
       });
 
       const track = destNode.stream.getAudioTracks()[0] || null;
@@ -791,6 +847,12 @@ export class WebRTCManager {
 
     let acquiredStream: MediaStream | null = null;
 
+    const videoConstraints: MediaTrackConstraints = {
+      width: { ideal: preset.width, max: preset.width },
+      height: { ideal: preset.height, max: preset.height },
+      frameRate: { ideal: preset.fps, max: preset.fps },
+    };
+
     if (window.electronAPI?.isElectron) {
       // 1. Tenta iniciar a captura nativa do Windows que EXCLUI o Discord (VAD\Process_Loopback)
       let discordFreeAudioTrack: MediaStreamTrack | null = null;
@@ -800,51 +862,66 @@ export class WebRTCManager {
 
       const needFallbackSystemAudio = shareAudio && !discordFreeAudioTrack;
 
-      if (sourceId) {
-        await window.electronAPI.selectDesktopSource({
-          sourceId,
-          shareAudio: needFallbackSystemAudio,
-        });
-      }
-
       try {
-        acquiredStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
-          audio: needFallbackSystemAudio
-            ? {
-                echoCancellation: false,
-                noiseSuppression: false,
-                autoGainControl: false,
-              }
-            : false,
-        });
-      } catch (err1) {
-        console.warn('[WebRTC Electron] Tentativa com getDisplayMedia falhou, tentando alternativa:', err1);
-        try {
-          await window.electronAPI.selectDesktopSource({ sourceId: sourceId || '', shareAudio: false });
-          acquiredStream = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-            audio: false,
+        if (sourceId) {
+          await window.electronAPI.selectDesktopSource({
+            sourceId,
+            shareAudio: needFallbackSystemAudio,
           });
-        } catch (err2) {
-          if (sourceId) {
-            acquiredStream = await navigator.mediaDevices.getUserMedia({
-              audio: false,
-              video: {
-                mandatory: {
-                  chromeMediaSource: 'desktop',
-                  chromeMediaSourceId: sourceId,
-                  maxWidth: preset.width,
-                  maxHeight: preset.height,
-                  maxFrameRate: preset.fps,
-                },
-              } as any,
+        }
+
+        const loopbackAudioConstraints: MediaTrackConstraints | false = needFallbackSystemAudio
+          ? {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            }
+          : false;
+
+        try {
+          // Pede a resolução/FPS do preset já na captura: sem isso o capturador inicia a 30 FPS
+          // e o applyConstraints posterior nem sempre consegue subir a taxa.
+          acquiredStream = await navigator.mediaDevices.getDisplayMedia({
+            video: videoConstraints,
+            audio: loopbackAudioConstraints,
+          });
+        } catch (err1) {
+          console.warn('[WebRTC Electron] getDisplayMedia com constraints falhou, tentando sem:', err1);
+          try {
+            // Mesma captura (com o áudio loopback, se pedido), mas sem constraints de vídeo
+            acquiredStream = await navigator.mediaDevices.getDisplayMedia({
+              video: true,
+              audio: loopbackAudioConstraints,
             });
-          } else {
-            this.stopDiscordFreeAudioTrack();
-            throw err2;
+          } catch (err2) {
+            console.warn('[WebRTC Electron] getDisplayMedia falhou, tentando só vídeo:', err2);
+            try {
+              await window.electronAPI.selectDesktopSource({ sourceId: sourceId || '', shareAudio: false });
+              acquiredStream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: false,
+              });
+            } catch (err3) {
+              if (!sourceId) throw err3;
+              acquiredStream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: {
+                  mandatory: {
+                    chromeMediaSource: 'desktop',
+                    chromeMediaSourceId: sourceId,
+                    maxWidth: preset.width,
+                    maxHeight: preset.height,
+                    maxFrameRate: preset.fps,
+                  },
+                } as any,
+              });
+            }
           }
         }
+      } catch (captureErr) {
+        // Não deixa o helper nativo de áudio rodando se a captura de vídeo falhou de vez
+        this.stopDiscordFreeAudioTrack();
+        throw captureErr;
       }
 
       // Anexa a track de áudio estéreo limpa (sem Discord!) ao stream de vídeo
@@ -916,6 +993,7 @@ export class WebRTCManager {
       throw new Error('Não foi possível obter a transmissão de tela.');
     }
 
+    this.currentScreenPreset = presetKey;
     this.rawScreenStream = acquiredStream;
     this.screenStream = this.setupAntiEchoOnScreenStream(acquiredStream);
 
@@ -963,6 +1041,7 @@ export class WebRTCManager {
   public async updateScreenQuality(presetKey: StreamQualityPreset) {
     if (!this.screenStream) return;
     const preset = QUALITY_PRESETS[presetKey];
+    this.currentScreenPreset = presetKey;
 
     const videoTrack = this.screenStream.getVideoTracks()[0];
     if (videoTrack) {
@@ -1010,6 +1089,7 @@ export class WebRTCManager {
       this.antiEchoInterval = null;
     }
 
+    this.currentScreenPreset = null;
     if (!this.screenStream && !this.rawScreenStream) return;
 
     const screenTracks = new Set([
@@ -1050,12 +1130,23 @@ export class WebRTCManager {
 
   private async renegotiate(peerId: string, pc?: RTCPeerConnection) {
     const conn = pc || this.peerConnections.get(peerId);
-    if (!conn) return;
+    if (!conn || conn.signalingState === 'closed') return;
+
+    // Se já existe uma oferta em andamento (ou estamos respondendo o colega), não descarta o pedido:
+    // marca como pendente e reenvia quando a conexão voltar a 'stable'. Antes, parar e iniciar a
+    // transmissão em sequência fazia a segunda oferta ser abortada e o espectador nunca recebia a tela.
+    if (this.makingOffer.get(peerId) || conn.signalingState !== 'stable') {
+      this.pendingRenegotiation.add(peerId);
+      return;
+    }
 
     try {
       this.makingOffer.set(peerId, true);
       const offer = await conn.createOffer();
-      if (conn.signalingState !== 'stable') return;
+      if (conn.signalingState !== 'stable') {
+        this.pendingRenegotiation.add(peerId);
+        return;
+      }
       if (offer.sdp) {
         offer.sdp = this.enhanceOpusSdp(offer.sdp);
       }
@@ -1091,6 +1182,12 @@ export class WebRTCManager {
     this.makingOffer.delete(peerId);
     this.ignoreOffer.delete(peerId);
     this.pendingCandidates.delete(peerId);
+    this.pendingRenegotiation.delete(peerId);
+    const timer = this.iceFailureTimers.get(peerId);
+    if (timer) {
+      clearTimeout(timer);
+      this.iceFailureTimers.delete(peerId);
+    }
   }
 
   public leaveAll() {
@@ -1104,6 +1201,7 @@ export class WebRTCManager {
       clearInterval(this.antiEchoInterval);
       this.antiEchoInterval = null;
     }
+    this.currentScreenPreset = null;
     this.remoteVoiceAnalysers.clear();
     this.peerMicStreamIds.clear();
     this.peerScreenStreams.clear();

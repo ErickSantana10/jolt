@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, desktopCapturer, session, shell, safeStorage } = require('electron');
 const path = require('path');
 const http = require('http');
 const https = require('https');
@@ -18,11 +18,31 @@ try {
 
 const SAVED_AUTH_FILE = path.join(PERSISTENT_DATA_DIR, 'saved-auth.json');
 
+// Credenciais salvas são criptografadas com a DPAPI do Windows (safeStorage): só o mesmo usuário
+// do Windows consegue ler. Antes a senha ficava em texto puro no JSON.
+// Arquivos antigos em texto puro continuam sendo lidos e são regravados criptografados.
+function canEncrypt() {
+  try {
+    return safeStorage.isEncryptionAvailable();
+  } catch {
+    return false;
+  }
+}
+
 function readSavedAuthFromDisk() {
   try {
     if (fs.existsSync(SAVED_AUTH_FILE)) {
       const raw = fs.readFileSync(SAVED_AUTH_FILE, 'utf-8');
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.encrypted === 'string') {
+        if (!canEncrypt()) return null;
+        return JSON.parse(safeStorage.decryptString(Buffer.from(parsed.encrypted, 'base64')));
+      }
+      // Formato legado (texto puro): migra para criptografado
+      if (parsed && canEncrypt()) {
+        writeSavedAuthToDisk(parsed);
+      }
+      return parsed;
     }
   } catch (err) {
     console.warn('[Electron] Erro ao ler saved-auth.json:', err);
@@ -35,7 +55,11 @@ function writeSavedAuthToDisk(data) {
     if (!fs.existsSync(PERSISTENT_DATA_DIR)) {
       fs.mkdirSync(PERSISTENT_DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(SAVED_AUTH_FILE, JSON.stringify(data || {}, null, 2), 'utf-8');
+    const json = JSON.stringify(data || {});
+    const payload = canEncrypt()
+      ? JSON.stringify({ encrypted: safeStorage.encryptString(json).toString('base64') })
+      : json;
+    fs.writeFileSync(SAVED_AUTH_FILE, payload, 'utf-8');
     return true;
   } catch (err) {
     console.warn('[Electron] Erro ao salvar saved-auth.json:', err);
@@ -282,20 +306,27 @@ function downloadFileWithProgress(url, destPath, onProgress) {
 
 function setupScreenShareAndPermissions() {
   // 1. Concede automaticamente permissões de microfone, câmera e captura de tela + áudio
+  // Antes era `allowed.includes(permission) || true` (liberava TODAS as permissões para qualquer
+  // página/iframe carregado, inclusive o player do YouTube). Agora só o necessário para o Jolt.
+  const ALLOWED_PERMISSIONS = new Set([
+    'media',
+    'display-capture',
+    'audioCapture',
+    'videoCapture',
+    'desktopCapture',
+    'fullscreen',
+    'notifications',
+    'speaker-selection',
+    'clipboard-read',
+    'clipboard-sanitized-write',
+    'pointerLock',
+    'mediaKeySystem',
+  ]);
   session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    const allowed = [
-      'media',
-      'display-capture',
-      'audioCapture',
-      'videoCapture',
-      'desktopCapture',
-      'fullscreen',
-      'notifications',
-    ];
-    callback(allowed.includes(permission) || true);
+    callback(ALLOWED_PERMISSIONS.has(permission));
   });
 
-  session.defaultSession.setPermissionCheckHandler(() => true);
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => ALLOWED_PERMISSIONS.has(permission));
 
   // 2. IPC para listar todas as telas e janelas abertas com miniatura em tempo real
   ipcMain.handle('desktop-capturer:get-sources', async () => {
@@ -497,9 +528,16 @@ function setupScreenShareAndPermissions() {
   // 6. Auto-Atualizador com 1 clique (Zero EBUSY): baixa em pasta dedicada, substitui via script pós-fechamento se bloqueado e reinicia!
   ipcMain.handle('app:install-update', async (_event, { downloadUrl }) => {
     try {
-      const targetUrl =
-        downloadUrl ||
-        'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe';
+      const DEFAULT_UPDATE_URL = 'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe';
+      // O executável baixado é executado em seguida: só aceita releases do repositório oficial.
+      // Sem isso, qualquer script na página (ex.: um XSS) poderia baixar e rodar um .exe qualquer.
+      const isTrustedUpdateUrl =
+        typeof downloadUrl === 'string' &&
+        downloadUrl.startsWith('https://github.com/ErickSantana10/jolt/releases/download/');
+      if (downloadUrl && !isTrustedUpdateUrl) {
+        return { success: false, error: 'URL de atualização não confiável.' };
+      }
+      const targetUrl = isTrustedUpdateUrl ? downloadUrl : DEFAULT_UPDATE_URL;
 
       if (!fs.existsSync(PERSISTENT_DATA_DIR)) {
         fs.mkdirSync(PERSISTENT_DATA_DIR, { recursive: true });

@@ -370,11 +370,12 @@ export const App: React.FC = () => {
           socket.emit(
             'auth:login',
             { name: savedAuth.name, password: savedAuth.password },
-            async (loginRes: { success: boolean; user?: any; state?: any }) => {
+            async (loginRes: { success: boolean; user?: any; state?: any; sessionToken?: string }) => {
               if (loginRes.success && loginRes.user && loginRes.state) {
                 const updatedAuth: SavedAuthData = {
                   ...savedAuth,
                   userId: loginRes.user.id,
+                  sessionToken: loginRes.sessionToken,
                   autoLogin: true,
                 };
                 localStorage.setItem('janjacord_user_id', loginRes.user.id);
@@ -395,7 +396,8 @@ export const App: React.FC = () => {
         setIsAutoReconnecting(true);
         socket.emit(
           'auth:session',
-          { userId: savedAuth.userId },
+          // O servidor exige o token de sessão (só o userId permitia entrar na conta de qualquer um)
+          { userId: savedAuth.userId, sessionToken: savedAuth.sessionToken },
           (res: { success: boolean; user?: any; state?: any }) => {
             if (res.success && res.user && res.state) {
               applyAuthenticatedResponse({ user: res.user, state: res.state });
@@ -548,6 +550,10 @@ export const App: React.FC = () => {
         setCallingFriend(null);
       }
 
+      // Ao trocar de sala sem desconectar, encerra as conexões com quem ficou na sala anterior
+      // (antes continuavam abertas e a tela seguia sendo enviada para a sala antiga).
+      rtc.closePeersExcept(peers.map((p) => p?.socketId).filter(Boolean));
+
       try {
         await rtc.startMicrophone();
       } catch (err) {
@@ -581,13 +587,20 @@ export const App: React.FC = () => {
   }, []);
 
   // Auth Handlers
-  const persistCredentials = async (userId: string, name: string, password: string, rememberMe: boolean) => {
+  const persistCredentials = async (
+    userId: string,
+    name: string,
+    password: string,
+    rememberMe: boolean,
+    sessionToken?: string
+  ) => {
     setSavedRememberMe(rememberMe);
     if (rememberMe) {
       setSavedLoginName(name);
       setSavedLoginPassword(password);
       const data: SavedAuthData = {
         userId,
+        sessionToken,
         name,
         password,
         rememberMe: true,
@@ -616,9 +629,9 @@ export const App: React.FC = () => {
     callback: (error?: string) => void
   ) => {
     autoReconnectCancelledRef.current = false;
-    socketRef.current?.emit('auth:login', { name, password }, async (res: { success: boolean; error?: string; user?: any; state?: any }) => {
+    socketRef.current?.emit('auth:login', { name, password }, async (res: { success: boolean; error?: string; user?: any; state?: any; sessionToken?: string }) => {
       if (res.success && res.user && res.state) {
-        await persistCredentials(res.user.id, name, password, rememberMe);
+        await persistCredentials(res.user.id, name, password, rememberMe, res.sessionToken);
         const u: User = { ...res.user, name: res.user.name || res.user.displayName || res.user.username, tag: res.user.tag || '001' };
         setCurrentUser(u);
         setServers(res.state.servers || []);
@@ -647,9 +660,9 @@ export const App: React.FC = () => {
     socketRef.current?.emit(
       'auth:register',
       { name, password, avatarColor },
-      async (res: { success: boolean; error?: string; user?: any; state?: any }) => {
+      async (res: { success: boolean; error?: string; user?: any; state?: any; sessionToken?: string }) => {
         if (res.success && res.user && res.state) {
-          await persistCredentials(res.user.id, name, password, rememberMe);
+          await persistCredentials(res.user.id, name, password, rememberMe, res.sessionToken);
           const u: User = { ...res.user, name: res.user.name || res.user.displayName || res.user.username, tag: res.user.tag || '001' };
           setCurrentUser(u);
           setServers(res.state.servers || []);
@@ -676,13 +689,20 @@ export const App: React.FC = () => {
       const raw = localStorage.getItem('jolt_saved_auth');
       if (raw) {
         const parsed: SavedAuthData = JSON.parse(raw);
-        const updated: SavedAuthData = { ...parsed, userId: undefined, autoLogin: false };
+        // Revoga o token no servidor para que ele não possa mais ser usado
+        if (parsed.userId && parsed.sessionToken) {
+          socketRef.current?.emit('auth:logout', { userId: parsed.userId, sessionToken: parsed.sessionToken });
+        }
+        const updated: SavedAuthData = { ...parsed, userId: undefined, sessionToken: undefined, autoLogin: false };
         localStorage.setItem('jolt_saved_auth', JSON.stringify(updated));
         await window.electronAPI?.saveAuth?.(updated);
       } else if (window.electronAPI?.getSavedAuth) {
         const disk = await window.electronAPI.getSavedAuth();
         if (disk) {
-          await window.electronAPI.saveAuth?.({ ...disk, userId: undefined, autoLogin: false });
+          if (disk.userId && disk.sessionToken) {
+            socketRef.current?.emit('auth:logout', { userId: disk.userId, sessionToken: disk.sessionToken });
+          }
+          await window.electronAPI.saveAuth?.({ ...disk, userId: undefined, sessionToken: undefined, autoLogin: false });
         }
       }
     } catch {}

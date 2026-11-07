@@ -19,6 +19,7 @@ export interface UpdateProgressInfo {
 
 export interface SavedAuthData {
   userId?: string;
+  sessionToken?: string;
   name?: string;
   password?: string;
   rememberMe?: boolean;

@@ -5,6 +5,7 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import { initDatabase, loadDB, saveDB, DBUser, DBServer, DBChannel, DBFriendship, DBMessage, DBDMMessage, ServerRole } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -86,6 +87,55 @@ function extractYouTubeId(url?: string): string | null {
 }
 
 const onlineSessions = new Map<string, OnlineSession>();
+
+// ===== Segurança de credenciais =====
+// Senhas eram gravadas e comparadas em texto puro. Agora usam scrypt (nativo do Node, sem dependências).
+// Contas antigas continuam entrando: no primeiro login bem-sucedido a senha é migrada para hash.
+function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+}
+
+function verifyPassword(stored: string | undefined, password: string): { ok: boolean; needsUpgrade: boolean } {
+  if (!stored) return { ok: false, needsUpgrade: false };
+  if (stored.startsWith('scrypt$')) {
+    const [, salt, hashHex] = stored.split('$');
+    if (!salt || !hashHex) return { ok: false, needsUpgrade: false };
+    const expected = Buffer.from(hashHex, 'hex');
+    const actual = crypto.scryptSync(password, salt, expected.length);
+    return { ok: expected.length === actual.length && crypto.timingSafeEqual(expected, actual), needsUpgrade: false };
+  }
+  // Legado: senha em texto puro
+  const a = Buffer.from(stored);
+  const b = Buffer.from(password);
+  const ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+  return { ok, needsUpgrade: ok };
+}
+
+function sha256(value: string): string {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+// Token de sessão para o login automático. Antes, `auth:session` aceitava apenas o userId — que é
+// público (vai para todos em online:list) — então qualquer um podia entrar na conta de outra pessoa.
+const MAX_SESSION_TOKENS = 10;
+function issueSessionToken(user: DBUser): string {
+  const token = crypto.randomBytes(32).toString('hex');
+  const tokens = (user.sessionTokens || []).filter(Boolean);
+  tokens.push(sha256(token));
+  user.sessionTokens = tokens.slice(-MAX_SESSION_TOKENS);
+  return token;
+}
+
+function hasValidSessionToken(user: DBUser, token: unknown): boolean {
+  if (typeof token !== 'string' || token.length < 32) return false;
+  const hashed = Buffer.from(sha256(token));
+  return (user.sessionTokens || []).some((t) => {
+    const stored = Buffer.from(t);
+    return stored.length === hashed.length && crypto.timingSafeEqual(stored, hashed);
+  });
+}
 
 function generateInviteCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -331,12 +381,13 @@ io.on('connection', (socket: Socket) => {
       id: `usr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       name: rawName,
       tag,
-      password: cleanPassword,
+      password: hashPassword(cleanPassword),
       avatarColor: avatarColor || '#6366f1',
       avatarUrl: avatarUrl || undefined,
       createdAt: new Date().toISOString(),
     };
 
+    const sessionToken = issueSessionToken(newUser);
     db.users.push(newUser);
     saveDB(db);
 
@@ -353,7 +404,7 @@ io.on('connection', (socket: Socket) => {
     onlineSessions.set(socket.id, session);
 
     const state = getUserState(newUser.id);
-    callback?.({ success: true, user: state?.currentUser, state });
+    callback?.({ success: true, user: state?.currentUser, state, sessionToken });
     broadcastOnlineList();
   });
 
@@ -375,14 +426,14 @@ io.on('connection', (socket: Socket) => {
         (u) =>
           ((u.name || (u as any).displayName || (u as any).username || '').toLowerCase() === inputName) &&
           (u.tag === inputTag || u.tag === inputTag.padStart(3, '0')) &&
-          u.password === cleanPassword
+          verifyPassword(u.password, cleanPassword).ok
       );
     } else {
       // Se não passou #, busca pelo nome
       const matchedUsers = db.users.filter(
         (u) =>
           ((u.name || (u as any).displayName || (u as any).username || '').toLowerCase() === inputIdentifier.toLowerCase()) &&
-          u.password === cleanPassword
+          verifyPassword(u.password, cleanPassword).ok
       );
       if (matchedUsers.length === 1) {
         user = matchedUsers[0];
@@ -396,6 +447,39 @@ io.on('connection', (socket: Socket) => {
 
     if (!user) {
       return callback?.({ success: false, error: 'Nome de usuário ou senha incorretos.' });
+    }
+
+    // Migra senha legada (texto puro) para hash e emite token de sessão
+    if (verifyPassword(user.password, cleanPassword).needsUpgrade) {
+      user.password = hashPassword(cleanPassword);
+    }
+    const sessionToken = issueSessionToken(user);
+    saveDB(db);
+
+    const session: OnlineSession = {
+      userId: user.id,
+      socketId: socket.id,
+      currentVoiceChannel: null,
+      currentServerId: null,
+      isMuted: false,
+      isDeafened: false,
+      isScreenSharing: false,
+      streamQuality: 'balanced',
+    };
+    onlineSessions.set(socket.id, session);
+
+    const state = getUserState(user.id);
+    callback?.({ success: true, user: state?.currentUser, state, sessionToken });
+    broadcastOnlineList();
+  });
+
+  // 3. RETOMAR SESSÃO (exige o token emitido no login; só o userId não basta)
+  socket.on('auth:session', ({ userId, sessionToken }: { userId?: string; sessionToken?: string } = {}, callback) => {
+    const db = loadDB();
+    const user = db.users.find((u) => u.id === userId);
+
+    if (!user || !hasValidSessionToken(user, sessionToken)) {
+      return callback?.({ success: false, error: 'Sessão inválida.' });
     }
 
     const session: OnlineSession = {
@@ -415,30 +499,17 @@ io.on('connection', (socket: Socket) => {
     broadcastOnlineList();
   });
 
-  // 3. RETOMAR SESSÃO
-  socket.on('auth:session', ({ userId }, callback) => {
+  // 3.1 LOGOUT: revoga o token deste dispositivo
+  socket.on('auth:logout', ({ userId, sessionToken }: { userId?: string; sessionToken?: string } = {}, callback) => {
     const db = loadDB();
     const user = db.users.find((u) => u.id === userId);
-
-    if (!user) {
-      return callback?.({ success: false, error: 'Sessão inválida.' });
+    if (user && typeof sessionToken === 'string') {
+      const hashed = sha256(sessionToken);
+      const before = (user.sessionTokens || []).length;
+      user.sessionTokens = (user.sessionTokens || []).filter((t) => t !== hashed);
+      if (user.sessionTokens.length !== before) saveDB(db);
     }
-
-    const session: OnlineSession = {
-      userId: user.id,
-      socketId: socket.id,
-      currentVoiceChannel: null,
-      currentServerId: null,
-      isMuted: false,
-      isDeafened: false,
-      isScreenSharing: false,
-      streamQuality: 'balanced',
-    };
-    onlineSessions.set(socket.id, session);
-
-    const state = getUserState(user.id);
-    callback?.({ success: true, user: state?.currentUser, state });
-    broadcastOnlineList();
+    callback?.({ success: true });
   });
 
   // 4. ATUALIZAR PERFIL (Apenas Nome, Foto, Cor) - a # continua intacta ou muda se o nome mudar
@@ -1223,10 +1294,18 @@ io.on('connection', (socket: Socket) => {
 
     const db = loadDB();
 
-    // Se for canal de servidor, valida membership
-    if (serverId) {
-      const server = db.servers.find((s) => s.id === serverId);
+    if (typeof channelId !== 'string' || !channelId) return;
+
+    if (channelId.startsWith('dm-call-')) {
+      // Chamada privada: o id é `dm-call-<idA>-<idB>`, só os dois participantes podem entrar
+      if (!channelId.includes(session.userId)) return;
+    } else {
+      // Canal de servidor: precisa ser membro e o canal precisa pertencer ao servidor
+      const server = serverId
+        ? db.servers.find((s) => s.id === serverId)
+        : db.servers.find((s) => s.channels.some((c) => c.id === channelId));
       if (!server || !server.members.includes(session.userId)) return;
+      if (!server.channels.some((c) => c.id === channelId)) return;
     }
 
     if (session.currentVoiceChannel) {
@@ -1289,9 +1368,24 @@ io.on('connection', (socket: Socket) => {
     broadcastOnlineList();
   });
 
-  socket.on('user:update-state', (updates: Partial<OnlineSession>) => {
+  socket.on('user:update-state', (rawUpdates: Partial<OnlineSession>) => {
     const session = onlineSessions.get(socket.id);
-    if (!session) return;
+    if (!session || !rawUpdates || typeof rawUpdates !== 'object') return;
+
+    // Apenas campos de estado de voz. Antes era Object.assign(session, updates) direto,
+    // o que permitia mandar { userId: '<outro>' } e assumir a identidade de outra conta.
+    const updates: Partial<OnlineSession> = {};
+    if (typeof rawUpdates.isMuted === 'boolean') updates.isMuted = rawUpdates.isMuted;
+    if (typeof rawUpdates.isDeafened === 'boolean') updates.isDeafened = rawUpdates.isDeafened;
+    if (typeof rawUpdates.isScreenSharing === 'boolean') updates.isScreenSharing = rawUpdates.isScreenSharing;
+    if (
+      rawUpdates.streamQuality === 'potato' ||
+      rawUpdates.streamQuality === 'balanced' ||
+      rawUpdates.streamQuality === 'gamer'
+    ) {
+      updates.streamQuality = rawUpdates.streamQuality;
+    }
+    if (Object.keys(updates).length === 0) return;
 
     Object.assign(session, updates);
     broadcastOnlineList();
@@ -1598,9 +1692,10 @@ io.on('connection', (socket: Socket) => {
     callback?.({ success: true, state });
   });
 
-  socket.on('media:sync-action', ({ channelId, action, time, userId }: { channelId: string; action: 'play' | 'pause' | 'skip' | 'seek'; time?: number; userId?: string }) => {
+  socket.on('media:sync-action', ({ channelId, action, time }: { channelId: string; action: 'play' | 'pause' | 'skip' | 'seek'; time?: number }) => {
+    // O userId enviado pelo cliente não é confiável: só vale o da sessão autenticada
     const session = onlineSessions.get(socket.id);
-    const callerUserId = session?.userId || userId;
+    const callerUserId = session?.userId;
     if (!callerUserId) return;
 
     const state = mediaRooms.get(channelId);
@@ -1659,9 +1754,9 @@ io.on('connection', (socket: Socket) => {
   });
 
   // Heartbeat contínuo enviado pelo dono do vídeo atual para manter o tempo e play/pause de todo mundo 100% sincronizado
-  socket.on('media:heartbeat', ({ channelId, currentTime, isPlaying, userId }: { channelId: string; currentTime: number; isPlaying: boolean; userId?: string }) => {
+  socket.on('media:heartbeat', ({ channelId, currentTime, isPlaying }: { channelId: string; currentTime: number; isPlaying: boolean }) => {
     const session = onlineSessions.get(socket.id);
-    const callerUserId = session?.userId || userId;
+    const callerUserId = session?.userId;
     if (!callerUserId) return;
 
     const state = mediaRooms.get(channelId);

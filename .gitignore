@@ -16,8 +16,8 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
-# Banco de dados persistente (mantido no repositório para o Render)
-# server/data/janjacord.db.json
+# Banco de dados local (contém dados de usuários — nunca versionar; a fonte real é o Supabase)
+server/data/janjacord.db.json
 
 # Arquivos do sistema operacional e IDE
 .DS_Store

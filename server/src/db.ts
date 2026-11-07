@@ -119,22 +119,27 @@ const INITIAL_DB: DatabaseSchema = {
 };
 
 // Configuração do Supabase PostgreSQL
-const SUPABASE_DB_URL =
-  process.env.DATABASE_URL ||
-  'postgresql://postgres.qboxsieiqfnkvlracktc:3Kp34%2B_pxBBV%2Byb@aws-0-us-east-2.pooler.supabase.com:6543/postgres';
+// A URL (com senha) vem SOMENTE da variável de ambiente DATABASE_URL (configurada no painel do Render).
+// Nunca colocar a senha no código: o repositório é público.
+const SUPABASE_DB_URL = process.env.DATABASE_URL || '';
 
 let pool: pg.Pool | null = null;
+if (!SUPABASE_DB_URL) {
+  console.warn('[Supabase] DATABASE_URL não definida: usando apenas o arquivo JSON local (dados não persistem no Render).');
+}
 try {
-  pool = new Pool({
-    connectionString: SUPABASE_DB_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
-  });
-  pool.on('error', (err) => {
-    console.error('[Supabase Pool Error]:', err.message);
-  });
+  if (SUPABASE_DB_URL) {
+    pool = new Pool({
+      connectionString: SUPABASE_DB_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    });
+    pool.on('error', (err) => {
+      console.error('[Supabase Pool Error]:', err.message);
+    });
+  }
 } catch (e) {
   console.warn('[Supabase] Falha ao instanciar Pool:', e);
 }

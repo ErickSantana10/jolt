@@ -175,26 +175,26 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150">
-      <div className="w-full max-w-3xl h-[610px] bg-[#120b22] border border-violet-500/30 rounded-3xl shadow-2xl shadow-violet-950/60 flex overflow-hidden select-none">
+      <div className="w-full max-w-3xl h-[610px] bg-ink-800 border border-white/[0.07] rounded-2xl shadow-2xl flex overflow-hidden select-none">
         {/* 1. Left Sidebar Tabs */}
-        <div className="w-60 bg-[#0d0718] border-r border-violet-500/15 p-4 flex flex-col justify-between shrink-0">
+        <div className="w-60 bg-ink-900 border-r border-white/[0.07] p-4 flex flex-col justify-between shrink-0">
           <div className="space-y-4">
             <div className="px-3 flex items-center gap-2.5">
               {serverIconUrl ? (
                 <img
                   src={serverIconUrl}
                   alt={serverName}
-                  className="w-7 h-7 rounded-xl object-cover border border-violet-400/30 shrink-0"
+                  className="w-7 h-7 rounded-xl object-cover border border-white/[0.07] shrink-0"
                 />
               ) : (
                 <span
-                  className="w-7 h-7 rounded-xl flex items-center justify-center text-[11px] font-black text-white shrink-0"
+                  className="w-7 h-7 rounded-xl flex items-center justify-center text-[11px] font-bold text-white shrink-0"
                   style={{ backgroundColor: serverColor }}
                 >
                   {serverName.slice(0, 2).toUpperCase() || 'JJ'}
                 </span>
               )}
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-violet-200 truncate">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-200 truncate">
                 {server.name}
               </h4>
             </div>
@@ -202,34 +202,34 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
             <div className="space-y-1.5">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer ${
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                   activeTab === 'overview'
-                    ? 'bg-gradient-to-r from-violet-600/35 to-fuchsia-600/20 text-white border border-violet-500/35 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-violet-500/10'
+                    ? 'bg-white/[0.07] text-white border border-white/[0.07] shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]'
                 }`}
               >
-                <Settings className="w-4 h-4 text-violet-400" />
+                <Settings className="w-4 h-4 text-volt" />
                 <span>Visão Geral & Estilo</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('roles')}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer ${
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                   activeTab === 'roles'
-                    ? 'bg-gradient-to-r from-violet-600/35 to-fuchsia-600/20 text-white border border-violet-500/35 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-violet-500/10'
+                    ? 'bg-white/[0.07] text-white border border-white/[0.07] shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]'
                 }`}
               >
-                <Shield className="w-4 h-4 text-fuchsia-400" />
+                <Shield className="w-4 h-4 text-volt" />
                 <span>Cargos ({serverRoles.length})</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('members')}
-                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer ${
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
                   activeTab === 'members'
-                    ? 'bg-gradient-to-r from-violet-600/35 to-fuchsia-600/20 text-white border border-violet-500/35 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-violet-500/10'
+                    ? 'bg-white/[0.07] text-white border border-white/[0.07] shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.05]'
                 }`}
               >
                 <Users className="w-4 h-4 text-emerald-400" />
@@ -242,7 +242,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
           {isOwner && (
             <button
               onClick={() => setConfirmDeleteServer(true)}
-              className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 transition cursor-pointer"
+              className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-500/15 border border-transparent hover:border-rose-500/30 transition cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
               <span>Excluir Servidor</span>
@@ -253,9 +253,9 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
         {/* 2. Main Tab Content */}
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           {/* Header */}
-          <div className="h-15 px-6 border-b border-violet-500/15 flex items-center justify-between bg-gradient-to-r from-violet-950/35 to-transparent shrink-0">
+          <div className="h-15 px-6 border-b border-white/[0.07] flex items-center justify-between bg-transparent shrink-0">
             <div>
-              <h3 className="font-black text-base text-white">
+              <h3 className="font-bold text-base text-white">
                 {activeTab === 'overview' && 'Personalização & Visão Geral'}
                 {activeTab === 'roles' && 'Cargos & Permissões'}
                 {activeTab === 'members' && 'Gerenciamento de Membros'}
@@ -263,7 +263,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-slate-400 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition cursor-pointer"
+              className="p-2 text-zinc-400 hover:text-white rounded-xl bg-white/5 hover:bg-white/10 transition cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -276,10 +276,10 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
               <form onSubmit={handleSaveOverview} className="space-y-5 max-w-lg">
                 {/* Banner / Capa do Servidor + Ícone Sobreposto */}
                 <div className="space-y-2">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-violet-200/80 block">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-200 block">
                     Capa (Banner) & Foto do Servidor
                   </label>
-                  <div className="relative rounded-2xl overflow-hidden border border-violet-500/25 bg-[#0b0714] shadow-lg">
+                  <div className="relative rounded-xl overflow-hidden border border-white/[0.07] bg-ink-900 shadow-lg">
                     {/* Banner Area */}
                     <div
                       onClick={() => bannerInputRef.current?.click()}
@@ -298,7 +298,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                         />
                       )}
                       <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 text-xs font-bold text-white transition">
-                        <ImageIcon className="w-4 h-4 text-violet-300" />
+                        <ImageIcon className="w-4 h-4 text-zinc-400" />
                         <span>Alterar Capa do Servidor</span>
                       </div>
                       {serverBannerUrl && (
@@ -324,11 +324,11 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                     />
 
                     {/* Bottom Strip inside Preview Card with Icon + Colors */}
-                    <div className="p-4 pt-3 flex items-center justify-between gap-4 bg-[#140d26]/90">
+                    <div className="p-4 pt-3 flex items-center justify-between gap-4 bg-ink-800/90">
                       <div className="flex items-center gap-3.5">
                         <div
                           onClick={() => iconInputRef.current?.click()}
-                          className="relative -mt-9 w-16 h-16 rounded-2xl flex items-center justify-center text-white text-xl font-black shadow-xl border-4 border-[#140d26] cursor-pointer group overflow-hidden shrink-0"
+                          className="relative -mt-9 w-16 h-16 rounded-xl flex items-center justify-center text-white text-xl font-bold shadow-xl border-4 border-ink-800 cursor-pointer group overflow-hidden shrink-0"
                           style={{ backgroundColor: serverColor }}
                           title="Clique para enviar uma foto para o servidor"
                         >
@@ -359,7 +359,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                             <button
                               type="button"
                               onClick={() => iconInputRef.current?.click()}
-                              className="text-xs font-bold text-violet-300 hover:text-white transition cursor-pointer"
+                              className="text-xs font-bold text-zinc-400 hover:text-white transition cursor-pointer"
                             >
                               {serverIconUrl ? 'Trocar Foto' : 'Enviar Foto'}
                             </button>
@@ -397,7 +397,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                 {/* Nome e Descrição */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-violet-200/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-200 block">
                       Nome do Servidor
                     </label>
                     <input
@@ -405,12 +405,12 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                       value={serverName}
                       onChange={(e) => setServerName(e.target.value)}
                       maxLength={32}
-                      className="w-full bg-[#0b0714] border border-violet-500/25 rounded-2xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-violet-400 transition select-text"
+                      className="w-full bg-ink-900 border border-white/[0.07] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-volt/40 transition select-text"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold uppercase tracking-wider text-violet-200/80 block">
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-200 block">
                       Descrição Curta / Status
                     </label>
                     <input
@@ -419,18 +419,18 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                       onChange={(e) => setServerDescription(e.target.value)}
                       placeholder="Ex: Comunidade oficial de jogos e resenha"
                       maxLength={80}
-                      className="w-full bg-[#0b0714] border border-violet-500/25 rounded-2xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-violet-400 transition select-text"
+                      className="w-full bg-ink-900 border border-white/[0.07] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-volt/40 transition select-text"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold uppercase tracking-wider text-violet-200/80 block">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-200 block">
                     Código de Convite
                   </label>
-                  <div className="p-3 bg-[#0b0714] border border-violet-500/20 rounded-2xl text-xs font-mono text-violet-300 flex items-center justify-between">
+                  <div className="p-3 bg-ink-900 border border-white/[0.07] rounded-xl text-xs font-mono text-zinc-400 flex items-center justify-between">
                     <span className="font-bold tracking-wider">{server.inviteCode}</span>
-                    <span className="text-[10px] text-slate-500 font-sans">
+                    <span className="text-[10px] text-zinc-500 font-sans">
                       Compartilhe para convidar amigos
                     </span>
                   </div>
@@ -440,7 +440,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                   <button
                     type="submit"
                     disabled={!serverName.trim()}
-                    className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-40 text-white rounded-2xl text-xs font-bold flex items-center gap-2 transition shadow-lg shadow-violet-600/30 cursor-pointer"
+                    className="px-5 py-2.5 bg-volt text-ink-950 disabled:opacity-40 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-lg cursor-pointer"
                   >
                     <Save className="w-4 h-4" />
                     <span>Salvar Personalizações</span>
@@ -461,14 +461,14 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="text-sm font-bold text-white">Cargos do Servidor</h4>
-                    <p className="text-xs text-violet-300/60">
+                    <p className="text-xs text-zinc-500">
                       Crie cargos para organizar membros e definir quem pode administrar.
                     </p>
                   </div>
                   {isAdmin && (
                     <button
                       onClick={() => setIsCreatingRole(true)}
-                      className="px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-violet-600/25 transition cursor-pointer"
+                      className="px-4 py-2 bg-volt text-ink-950 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg transition cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Novo Cargo</span>
@@ -480,14 +480,14 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                 {isCreatingRole && (
                   <form
                     onSubmit={handleCreateRoleSubmit}
-                    className="p-4 bg-[#0b0714] border border-violet-500/35 rounded-2xl space-y-3"
+                    className="p-4 bg-ink-900 border border-white/[0.07] rounded-xl space-y-3"
                   >
-                    <div className="font-bold text-xs text-violet-200 uppercase tracking-wider">
+                    <div className="font-bold text-xs text-zinc-200 uppercase tracking-wider">
                       Criar Novo Cargo
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="text-[10px] font-bold uppercase text-violet-300/70">
+                        <label className="text-[10px] font-bold uppercase text-zinc-500">
                           Nome do Cargo
                         </label>
                         <input
@@ -495,11 +495,11 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                           value={newRoleName}
                           onChange={(e) => setNewRoleName(e.target.value)}
                           placeholder="ex: Campeão, DJ, VIP"
-                          className="w-full mt-1 bg-[#140d26] border border-violet-500/25 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-violet-400 transition select-text"
+                          className="w-full mt-1 bg-ink-800 border border-white/[0.07] rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-volt/40 transition select-text"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] font-bold uppercase text-violet-300/70">
+                        <label className="text-[10px] font-bold uppercase text-zinc-500">
                           Cor do Cargo
                         </label>
                         <div className="flex items-center gap-2 mt-2">
@@ -518,12 +518,12 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                       </div>
                     </div>
 
-                    <label className="flex items-center gap-2 text-xs text-slate-300 font-semibold cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs text-zinc-300 font-semibold cursor-pointer">
                       <input
                         type="checkbox"
                         checked={newRoleIsAdmin}
                         onChange={(e) => setNewRoleIsAdmin(e.target.checked)}
-                        className="accent-violet-600 rounded"
+                        className="accent-volt rounded"
                       />
                       <span>Conceder Permissão de Administrador (Kick, Timeout, Gerenciar)</span>
                     </label>
@@ -532,14 +532,14 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsCreatingRole(false)}
-                        className="px-3 py-1.5 text-xs text-slate-400 hover:text-white rounded-xl transition cursor-pointer"
+                        className="px-3 py-1.5 text-xs text-zinc-400 hover:text-white rounded-xl transition cursor-pointer"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
                         disabled={!newRoleName.trim()}
-                        className="px-4 py-1.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-40 text-white rounded-xl text-xs font-bold transition shadow cursor-pointer"
+                        className="px-4 py-1.5 bg-volt text-ink-950 disabled:opacity-40 rounded-xl text-xs font-bold transition shadow cursor-pointer"
                       >
                         Salvar Cargo
                       </button>
@@ -552,7 +552,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                   {serverRoles.map((role) => (
                     <div
                       key={role.id}
-                      className="flex items-center justify-between p-3.5 bg-[#0b0714] border border-violet-500/15 rounded-2xl"
+                      className="flex items-center justify-between p-3.5 bg-ink-900 border border-white/[0.07] rounded-xl"
                     >
                       <div className="flex items-center gap-3">
                         <span
@@ -563,12 +563,12 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                           <div className="text-xs font-bold text-white flex items-center gap-2">
                             <span>{role.name}</span>
                             {role.isAdmin && (
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30">
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-white/[0.08] text-zinc-400 border border-white/[0.07]">
                                 Admin
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px] text-slate-500 font-mono mt-0.5">
+                          <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
                             ID: {role.id}
                           </div>
                         </div>
@@ -577,7 +577,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                       {isAdmin && role.id !== 'role-admin' && (
                         <button
                           onClick={() => onDeleteRole(role.id)}
-                          className="p-1.5 text-slate-500 hover:text-rose-400 rounded-xl hover:bg-rose-500/10 transition cursor-pointer"
+                          className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-xl hover:bg-rose-500/10 transition cursor-pointer"
                           title="Excluir Cargo"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -597,7 +597,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                     <h4 className="text-sm font-bold text-white">
                       Membros ({uniqueMemberIds.length})
                     </h4>
-                    <p className="text-xs text-violet-300/60">
+                    <p className="text-xs text-zinc-500">
                       Atribua cargos, silencie com timeout ou remova membros deste servidor.
                     </p>
                   </div>
@@ -606,7 +606,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                     value={memberSearch}
                     onChange={(e) => setMemberSearch(e.target.value)}
                     placeholder="Buscar membro..."
-                    className="bg-[#0b0714] border border-violet-500/25 rounded-2xl px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-400 transition select-text"
+                    className="bg-ink-900 border border-white/[0.07] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 outline-none focus:border-volt/40 transition select-text"
                   />
                 </div>
 
@@ -621,7 +621,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                     return (
                       <div
                         key={member.id}
-                        className="flex items-center justify-between p-3.5 bg-[#0b0714] border border-violet-500/15 rounded-2xl"
+                        className="flex items-center justify-between p-3.5 bg-ink-900 border border-white/[0.07] rounded-xl"
                       >
                         {/* Member Identity */}
                         <div className="flex items-center gap-3 min-w-0">
@@ -643,7 +643,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                           <div className="min-w-0 truncate">
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-bold text-white truncate">{member.name}</span>
-                              <span className="text-[10px] text-violet-300/50 font-mono">
+                              <span className="text-[10px] text-zinc-500 font-mono">
                                 #{member.tag}
                               </span>
                               {isMemberOwner && (
@@ -689,7 +689,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                                   onAssignRole(member.id, e.target.value);
                                 }
                               }}
-                              className="bg-[#160f29] border border-violet-500/25 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 outline-none cursor-pointer"
+                              className="bg-ink-700 border border-white/[0.07] text-zinc-200 text-xs rounded-xl px-2.5 py-1.5 outline-none cursor-pointer"
                             >
                               <option value="">+ Cargo</option>
                               {serverRoles.map((r) => (
@@ -711,7 +711,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                               className={`p-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1 transition cursor-pointer ${
                                 isTimedOut
                                   ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                                  : 'bg-[#160f29] text-slate-300 hover:text-white border-violet-500/25'
+                                  : 'bg-ink-700 text-zinc-300 hover:text-white border-white/[0.07]'
                               }`}
                               title={
                                 isTimedOut
@@ -749,22 +749,22 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
             onClick={() => setConfirmDeleteServer(false)}
           >
             <div
-              className="w-full max-w-sm bg-[#140d26] border border-rose-500/40 rounded-3xl p-5 shadow-2xl space-y-4"
+              className="w-full max-w-sm bg-ink-800 border border-rose-500/40 rounded-2xl p-5 shadow-2xl space-y-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
                   <Trash2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-extrabold text-white">Excluir Servidor?</h4>
+                  <h4 className="text-sm font-semibold text-white">Excluir Servidor?</h4>
                   <p className="text-[11px] text-rose-300 font-semibold">
                     Esta ação não pode ser desfeita
                   </p>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-zinc-300 leading-relaxed">
                 Tem certeza que deseja excluir permanentemente o servidor{' '}
                 <span className="font-bold text-white">"{server.name}"</span> e todos os seus canais?
               </p>
@@ -773,7 +773,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setConfirmDeleteServer(false)}
-                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -784,7 +784,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                     onDeleteServer();
                     onClose();
                   }}
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg transition cursor-pointer"
                 >
                   Sim, Excluir
                 </button>
@@ -800,22 +800,22 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
             onClick={() => setConfirmKickMember(null)}
           >
             <div
-              className="w-full max-w-sm bg-[#140d26] border border-rose-500/40 rounded-3xl p-5 shadow-2xl space-y-4"
+              className="w-full max-w-sm bg-ink-800 border border-rose-500/40 rounded-2xl p-5 shadow-2xl space-y-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0">
                   <UserX className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-extrabold text-white">
+                  <h4 className="text-sm font-semibold text-white">
                     Expulsar {confirmKickMember.name}?
                   </h4>
-                  <p className="text-[11px] text-slate-400">Remover membro do servidor</p>
+                  <p className="text-[11px] text-zinc-400">Remover membro do servidor</p>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs text-zinc-300 leading-relaxed">
                 Tem certeza que deseja expulsar{' '}
                 <span className="font-bold text-rose-300">{confirmKickMember.name}</span> do servidor{' '}
                 <span className="font-bold text-white">{server.name}</span>?
@@ -825,7 +825,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setConfirmKickMember(null)}
-                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -835,7 +835,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                     onKickMember(confirmKickMember.id);
                     setConfirmKickMember(null);
                   }}
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg transition cursor-pointer"
                 >
                   Sim, Expulsar
                 </button>
@@ -851,18 +851,18 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
             onClick={() => setTimeoutMemberTarget(null)}
           >
             <div
-              className="w-full max-w-sm bg-[#140d26] border border-violet-500/40 rounded-3xl p-5 shadow-2xl space-y-4"
+              className="w-full max-w-sm bg-ink-800 border border-white/[0.07] rounded-2xl p-5 shadow-2xl space-y-4"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-300 shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/[0.07] flex items-center justify-center text-zinc-400 shrink-0">
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-extrabold text-white">
+                  <h4 className="text-sm font-semibold text-white">
                     Silenciar {timeoutMemberTarget.name}
                   </h4>
-                  <p className="text-[11px] text-violet-300/70">
+                  <p className="text-[11px] text-zinc-500">
                     Escolha por quanto tempo aplicar o Timeout
                   </p>
                 </div>
@@ -882,15 +882,15 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                       onTimeoutMember(timeoutMemberTarget.id, opt.mins);
                       setTimeoutMemberTarget(null);
                     }}
-                    className="py-2 px-3 rounded-xl bg-[#0b0714] hover:bg-violet-600 text-slate-200 hover:text-white text-xs font-bold border border-violet-500/25 transition cursor-pointer"
+                    className="py-2 px-3 rounded-xl bg-ink-900 hover:bg-volt hover:text-ink-950 text-zinc-200 hover:text-white text-xs font-bold border border-white/[0.07] transition cursor-pointer"
                   >
                     {opt.label}
                   </button>
                 ))}
               </div>
 
-              <div className="pt-2 border-t border-violet-500/15 space-y-1.5">
-                <label className="text-[10px] font-bold uppercase text-violet-300/70">
+              <div className="pt-2 border-t border-white/[0.07] space-y-1.5">
+                <label className="text-[10px] font-bold uppercase text-zinc-500">
                   Ou defina os minutos personalizados:
                 </label>
                 <div className="flex gap-2">
@@ -900,7 +900,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                     max="10080"
                     value={customTimeoutMinutes}
                     onChange={(e) => setCustomTimeoutMinutes(e.target.value)}
-                    className="flex-1 bg-[#0b0714] border border-violet-500/25 rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-violet-400 select-text"
+                    className="flex-1 bg-ink-900 border border-white/[0.07] rounded-xl px-3 py-1.5 text-xs text-white outline-none focus:border-volt/40 select-text"
                   />
                   <button
                     type="button"
@@ -911,7 +911,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                         setTimeoutMemberTarget(null);
                       }
                     }}
-                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-bold transition cursor-pointer"
+                    className="px-3.5 py-1.5 rounded-xl bg-volt text-ink-950 text-xs font-bold transition cursor-pointer"
                   >
                     Aplicar
                   </button>
@@ -922,7 +922,7 @@ export const ServerSettingsModal: React.FC<ServerSettingsModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setTimeoutMemberTarget(null)}
-                  className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
                 >
                   Cancelar
                 </button>

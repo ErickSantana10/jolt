@@ -581,46 +581,46 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
       {/* 1. Main Left Screen: Video Stage & Controls (Expands when Chat/Queue is closed!) */}
       <div className="flex-1 flex flex-col h-full min-w-0 transition-all duration-200">
         {/* Header */}
-        <div className="h-14 px-5 border-b border-violet-500/15 flex items-center justify-between bg-[#120b22]/85 backdrop-blur-md gap-4">
+        <div className="h-14 px-5 border-b border-white/[0.07] flex items-center justify-between bg-ink-800/85 backdrop-blur-md gap-4">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-xl bg-fuchsia-500/15 border border-fuchsia-500/30 flex items-center justify-center text-fuchsia-400 shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.07] flex items-center justify-center text-volt shrink-0">
               <Film className="w-4 h-4" />
             </div>
             <div className="flex items-center gap-2.5 min-w-0 truncate">
               <h2 className="text-sm font-bold text-white flex items-center gap-2 shrink-0">
                 <span>{channel.name}</span>
-                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-300 border border-fuchsia-500/30">
+                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white/[0.08] text-zinc-400 border border-white/[0.07]">
                   Sala Sincronizada
                 </span>
               </h2>
 
               {/* Resumo da música tocando agora no cabeçalho */}
               {mediaState?.currentTrack && (
-                <div className="flex items-center gap-2 pl-2 border-l border-violet-500/20 min-w-0 truncate">
+                <div className="flex items-center gap-2 pl-2 border-l border-white/[0.07] min-w-0 truncate">
                   <img
                     src={mediaState.currentTrack.thumbnailUrl}
                     alt={mediaState.currentTrack.title}
                     className="w-7 h-5 rounded object-cover border border-white/10 shrink-0"
                   />
-                  <span className="text-xs font-bold text-fuchsia-300 truncate" title={mediaState.currentTrack.title}>
+                  <span className="text-xs font-bold text-zinc-400 truncate" title={mediaState.currentTrack.title}>
                     {mediaState.currentTrack.title}
                   </span>
-                  <span className="text-[11px] text-slate-400 shrink-0">
-                    (por <strong className="text-slate-200">{mediaState.currentTrack.addedBy.name}</strong>)
+                  <span className="text-[11px] text-zinc-400 shrink-0">
+                    (por <strong className="text-zinc-200">{mediaState.currentTrack.addedBy.name}</strong>)
                   </span>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-400 shrink-0">
+          <div className="flex items-center gap-2 text-xs text-zinc-400 shrink-0">
             {/* Badge de quem controla o vídeo atual */}
             {mediaState?.currentTrack && (
               <span
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl font-semibold border ${
                   isTrackOwner
-                    ? 'bg-fuchsia-500/15 border-fuchsia-500/30 text-fuchsia-300'
-                    : 'bg-[#160f29] border-violet-500/25 text-slate-300'
+                    ? 'bg-white/[0.05] border-white/[0.07] text-zinc-400'
+                    : 'bg-ink-700 border-white/[0.07] text-zinc-300'
                 }`}
                 title={
                   isTrackOwner
@@ -635,7 +635,7 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
                   </>
                 ) : (
                   <>
-                    <Lock className="w-3.5 h-3.5 text-violet-400" />
+                    <Lock className="w-3.5 h-3.5 text-volt" />
                     <span>DJ: {mediaState.currentTrack.addedBy.name}</span>
                   </>
                 )}
@@ -644,10 +644,10 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
 
             {/* Active Listeners count */}
             <span
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#160f29] border border-violet-500/25 text-slate-300 font-semibold"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-ink-700 border border-white/[0.07] text-zinc-300 font-semibold"
               title="Pessoas sincronizadas nesta sala"
             >
-              <Users className="w-3.5 h-3.5 text-violet-400" />
+              <Users className="w-3.5 h-3.5 text-volt" />
               <span>{totalListeners} ouvindo</span>
             </span>
 
@@ -656,19 +656,19 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
               onClick={() => setIsSidePanelOpen(!isSidePanelOpen)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs border transition cursor-pointer ${
                 isSidePanelOpen
-                  ? 'bg-violet-600/20 border-violet-500/40 text-violet-200 hover:bg-violet-600/30'
-                  : 'bg-[#160f29] border-violet-500/25 text-slate-200 hover:bg-violet-500/15'
+                  ? 'bg-white/[0.08] border-white/[0.07] text-zinc-200 hover:bg-white/[0.08]'
+                  : 'bg-ink-700 border-white/[0.07] text-zinc-200 hover:bg-white/[0.05]'
               }`}
               title={isSidePanelOpen ? 'Fechar Chat/Fila para aumentar o player' : 'Abrir Chat e Fila na lateral'}
             >
               {isSidePanelOpen ? (
                 <>
-                  <PanelRightClose className="w-4 h-4 text-violet-400" />
+                  <PanelRightClose className="w-4 h-4 text-volt" />
                   <span>Ocultar Chat</span>
                 </>
               ) : (
                 <>
-                  <PanelRightOpen className="w-4 h-4 text-fuchsia-400" />
+                  <PanelRightOpen className="w-4 h-4 text-volt" />
                   <span>Abrir Chat & Fila ({mediaState?.queue?.length || 0})</span>
                 </>
               )}
@@ -708,14 +708,14 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
           {/* Placeholder quando nenhum vídeo está tocando */}
           {!mediaState?.currentTrack && (
             <div className="z-20 text-center max-w-md p-6 space-y-4">
-              <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-amber-500/20 via-indigo-600/20 to-purple-600/20 border border-white/10 flex items-center justify-center shadow-2xl relative">
+              <div className="w-20 h-20 mx-auto rounded-2xl bg-white/[0.04] border border-white/[0.07] flex items-center justify-center shadow-2xl relative">
                 <Music2 className="w-10 h-10 text-amber-400 animate-bounce" />
                 <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 animate-ping" />
               </div>
 
               <div>
-                <h3 className="text-xl font-black text-white">Nenhum som tocando</h3>
-                <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                <h3 className="text-xl font-bold text-white">Nenhum som tocando</h3>
+                <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
                   Cole o link do YouTube na caixinha do <span className="text-amber-400 font-bold">canto inferior esquerdo</span> abaixo para assistir e ouvir sincronizado com todo mundo!
                 </p>
               </div>
@@ -725,16 +725,16 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
 
         {/* Barra de Progresso / Tempo Customizada */}
         {mediaState?.currentTrack && (
-          <div className="px-4 pt-2.5 pb-1 bg-[#120b22]/90 border-t border-violet-500/15 flex items-center gap-3 select-none">
-            <span className="text-[11px] font-mono text-slate-300 font-semibold w-10 text-right">
+          <div className="px-4 pt-2.5 pb-1 bg-ink-800/90 border-t border-white/[0.07] flex items-center gap-3 select-none">
+            <span className="text-[11px] font-mono text-zinc-300 font-semibold w-10 text-right">
               {formatSeconds(displayedTime)}
             </span>
 
             <div className="relative flex-1 flex items-center h-4">
-              <div className="w-full h-1.5 bg-[#201438] rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-ink-600 rounded-full overflow-hidden">
                 <div
                   className={`h-full ${
-                    isTrackOwner ? 'bg-fuchsia-500' : 'bg-violet-500'
+                    isTrackOwner ? 'bg-volt text-ink-950' : 'bg-volt text-ink-950'
                   }`}
                   style={{ width: `${progressPercent}%` }}
                 />
@@ -759,30 +759,30 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
               />
             </div>
 
-            <span className="text-[11px] font-mono text-slate-400 w-10">
+            <span className="text-[11px] font-mono text-zinc-400 w-10">
               {formatSeconds(playerDuration)}
             </span>
           </div>
         )}
 
         {/* Media Controls Bar */}
-        <div className="h-16 px-4 bg-[#120b22]/90 border-t border-violet-500/15 flex items-center justify-between gap-4 select-none">
+        <div className="h-16 px-4 bg-ink-800/90 border-t border-white/[0.07] flex items-center justify-between gap-4 select-none">
           {/* ESQUERDA: Caixinha de colar o link da música/vídeo */}
           <form onSubmit={handleAddTrack} className="flex items-center gap-2 w-full max-w-[360px]">
             <div className="relative flex-1 flex items-center">
-              <Link2 className="w-3.5 h-3.5 text-fuchsia-400 absolute left-3 pointer-events-none" />
+              <Link2 className="w-3.5 h-3.5 text-volt absolute left-3 pointer-events-none" />
               <input
                 type="text"
                 value={urlInput}
                 onChange={(e) => setUrlInput(e.target.value)}
                 placeholder="Cole o link do YouTube aqui..."
-                className="w-full bg-[#0b0714] border border-violet-500/25 focus:border-fuchsia-400 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-slate-500 outline-none transition select-text"
+                className="w-full bg-ink-900 border border-white/[0.07] focus:border-volt/40 rounded-xl pl-8 pr-3 py-2 text-xs text-white placeholder-zinc-500 outline-none transition select-text"
               />
             </div>
             <button
               type="submit"
               disabled={!urlInput.trim() || isSubmitting}
-              className="px-3.5 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-40 text-white font-extrabold text-xs rounded-xl shadow-md shadow-violet-600/25 transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+              className="px-3.5 py-2 bg-volt text-ink-950 disabled:opacity-40 font-semibold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 shrink-0 cursor-pointer"
               title="Colocar vídeo para tocar ou adicionar à fila"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -796,7 +796,7 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
             <button
               onClick={() => handleSeekOffset(-10)}
               disabled={!mediaState?.currentTrack || !isTrackOwner}
-              className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-violet-500/15 disabled:opacity-25 disabled:cursor-not-allowed transition cursor-pointer"
+              className="p-2 rounded-xl text-zinc-300 hover:text-white hover:bg-white/[0.05] disabled:opacity-25 disabled:cursor-not-allowed transition cursor-pointer"
               title={
                 isTrackOwner
                   ? 'Voltar 10 segundos para todos'
@@ -812,8 +812,8 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
               disabled={!mediaState?.currentTrack || !isTrackOwner}
               className={`w-10 h-10 rounded-full flex items-center justify-center transition shadow-lg ${
                 isTrackOwner
-                  ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white shadow-violet-600/30 cursor-pointer'
-                  : 'bg-[#160f29] text-slate-400 border border-violet-500/25 opacity-60 cursor-not-allowed'
+                  ? 'bg-volt text-ink-950 cursor-pointer'
+                  : 'bg-ink-700 text-zinc-400 border border-white/[0.07] opacity-60 cursor-not-allowed'
               }`}
               title={
                 !mediaState?.currentTrack
@@ -836,7 +836,7 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
             <button
               onClick={() => handleSeekOffset(10)}
               disabled={!mediaState?.currentTrack || !isTrackOwner}
-              className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-violet-500/15 disabled:opacity-25 disabled:cursor-not-allowed transition cursor-pointer"
+              className="p-2 rounded-xl text-zinc-300 hover:text-white hover:bg-white/[0.05] disabled:opacity-25 disabled:cursor-not-allowed transition cursor-pointer"
               title={
                 isTrackOwner
                   ? 'Avançar 10 segundos para todos'
@@ -852,8 +852,8 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
               disabled={!mediaState?.currentTrack}
               className={`px-3 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold transition cursor-pointer disabled:opacity-30 ${
                 hasUserVoted
-                  ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/25'
-                  : 'text-slate-300 hover:text-white hover:bg-violet-500/15'
+                  ? 'bg-volt text-ink-950 shadow-lg'
+                  : 'text-zinc-300 hover:text-white hover:bg-white/[0.05]'
               }`}
               title={`Votação para pular música (50% + 1): ${currentVoteCount} de ${requiredVotes} votos necessários`}
             >
@@ -866,16 +866,16 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
 
           {/* DIREITA: Volume Local, Abrir/Fechar Chat & Tela Cheia */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="flex items-center gap-2 bg-[#0b0714] px-2.5 py-1.5 rounded-xl border border-violet-500/20">
+            <div className="flex items-center gap-2 bg-ink-900 px-2.5 py-1.5 rounded-xl border border-white/[0.07]">
               <button
                 onClick={handleToggleMute}
-                className="text-slate-400 hover:text-white transition cursor-pointer"
+                className="text-zinc-400 hover:text-white transition cursor-pointer"
                 title={isMuted ? 'Ativar som (apenas para você)' : 'Mutar som (apenas para você)'}
               >
                 {isMuted || volume === 0 ? (
                   <VolumeX className="w-4 h-4 text-rose-400" />
                 ) : (
-                  <Volume2 className="w-4 h-4 text-fuchsia-400" />
+                  <Volume2 className="w-4 h-4 text-volt" />
                 )}
               </button>
               <input
@@ -887,17 +887,17 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
                   e.stopPropagation();
                   handleVolumeChange(Number(e.target.value));
                 }}
-                className="w-20 accent-fuchsia-500 cursor-pointer h-1.5 bg-[#201438] rounded-lg"
+                className="w-20 accent-volt cursor-pointer h-1.5 bg-ink-600 rounded-lg"
                 title={`Volume local: ${isMuted ? 0 : volume}%`}
               />
-              <span className="text-[10px] font-mono text-slate-400 w-7 text-right">
+              <span className="text-[10px] font-mono text-zinc-400 w-7 text-right">
                 {isMuted ? '0%' : `${volume}%`}
               </span>
             </div>
 
             <button
               onClick={handleFullscreen}
-              className="p-2 text-slate-400 hover:text-white hover:bg-violet-500/15 rounded-lg transition cursor-pointer"
+              className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.05] rounded-lg transition cursor-pointer"
               title="Tela Cheia"
             >
               <Maximize2 className="w-4 h-4" />
@@ -908,15 +908,15 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
 
       {/* 2. Right Side Panel: Retrátil */}
       {isSidePanelOpen && (
-        <div className="w-80 bg-[#120b22]/90 border-l border-violet-500/15 flex flex-col h-full shrink-0 animate-in fade-in duration-150">
+        <div className="w-80 bg-ink-800/90 border-l border-white/[0.07] flex flex-col h-full shrink-0 animate-in fade-in duration-150">
           {/* Navigation Tabs */}
-          <div className="h-14 border-b border-violet-500/15 flex items-center gap-1 px-2 bg-[#0d0718]">
+          <div className="h-14 border-b border-white/[0.07] flex items-center gap-1 px-2 bg-ink-900">
             <button
               onClick={() => setActiveTab('chat')}
               className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer ${
                 activeTab === 'chat'
-                  ? 'bg-violet-600/25 text-violet-200 border border-violet-500/35 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white/[0.08] text-zinc-200 border border-white/[0.07] shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <MessageSquare className="w-4 h-4" />
@@ -927,8 +927,8 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
               onClick={() => setActiveTab('queue')}
               className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition cursor-pointer ${
                 activeTab === 'queue'
-                  ? 'bg-fuchsia-600/25 text-fuchsia-200 border border-fuchsia-500/35 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white/[0.08] text-zinc-200 border border-white/[0.07] shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <ListMusic className="w-4 h-4" />
@@ -937,7 +937,7 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
 
             <button
               onClick={() => setIsSidePanelOpen(false)}
-              className="p-2 text-slate-400 hover:text-white hover:bg-violet-500/15 rounded-xl transition cursor-pointer"
+              className="p-2 text-zinc-400 hover:text-white hover:bg-white/[0.05] rounded-xl transition cursor-pointer"
               title="Fechar painel lateral para expandir o player"
             >
               <PanelRightClose className="w-4 h-4" />
@@ -949,15 +949,15 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
             <div className="flex-1 flex flex-col p-3 overflow-hidden">
               {/* Currently Playing Card */}
               {mediaState?.currentTrack && (
-                <div className="mb-3 bg-gradient-to-r from-fuchsia-500/15 to-violet-500/15 border border-fuchsia-500/30 rounded-2xl p-3 space-y-2">
+                <div className="mb-3 bg-white/[0.07] border border-white/[0.07] rounded-xl p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-fuchsia-300 flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-fuchsia-400 animate-pulse" />
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-volt text-ink-950 animate-pulse" />
                       <span>Tocando Agora</span>
                     </div>
-                    <span className="text-[10px] font-semibold text-slate-400 flex items-center gap-1">
+                    <span className="text-[10px] font-semibold text-zinc-400 flex items-center gap-1">
                       {isTrackOwner ? (
-                        <span className="text-fuchsia-300 font-bold">👑 Seu vídeo</span>
+                        <span className="text-zinc-400 font-bold">👑 Seu vídeo</span>
                       ) : (
                         <span>🔒 Controle do DJ</span>
                       )}
@@ -973,9 +973,9 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
                       <div className="text-xs font-bold text-white line-clamp-2" title={mediaState.currentTrack.title}>
                         {mediaState.currentTrack.title}
                       </div>
-                      <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-1 truncate">
+                      <div className="text-[10px] text-zinc-400 flex items-center gap-1 mt-1 truncate">
                         <span>por</span>
-                        <span className="font-semibold text-slate-200">
+                        <span className="font-semibold text-zinc-200">
                           {mediaState.currentTrack.addedBy.name}
                         </span>
                       </div>
@@ -986,34 +986,34 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
 
               {/* Votação para Pular (50% + 1) */}
               {mediaState?.currentTrack && (
-                <div className="mb-3 p-3 bg-[#0b0714] border border-violet-500/20 rounded-2xl space-y-2">
+                <div className="mb-3 p-3 bg-ink-900 border border-white/[0.07] rounded-xl space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                    <span className="font-bold text-zinc-300 flex items-center gap-1.5">
                       <span>🗳️ Votação para Pular</span>
                     </span>
-                    <span className="text-[11px] font-mono font-bold text-fuchsia-400">
+                    <span className="text-[11px] font-mono font-bold text-volt">
                       {currentVoteCount} de {requiredVotes} votos
                     </span>
                   </div>
 
                   {/* Barra de progresso */}
-                  <div className="w-full bg-[#160f29] h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-ink-700 h-2 rounded-full overflow-hidden">
                     <div
-                      className="bg-gradient-to-r from-violet-500 to-fuchsia-500 h-full transition-all duration-300"
+                      className="bg-volt text-ink-950 h-full transition-all duration-300"
                       style={{ width: `${Math.min(100, (currentVoteCount / requiredVotes) * 100)}%` }}
                     />
                   </div>
 
                   <div className="flex items-center justify-between pt-0.5">
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-zinc-400">
                       Regra: 50% + 1 ({totalListeners} {totalListeners === 1 ? 'pessoa' : 'pessoas'} na sala)
                     </span>
                     <button
                       onClick={onVoteSkip}
                       className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                         hasUserVoted
-                          ? 'bg-fuchsia-600 text-white hover:bg-fuchsia-500'
-                          : 'bg-[#160f29] text-slate-300 hover:text-white hover:bg-violet-600/30'
+                          ? 'bg-volt text-ink-950 hover:brightness-110'
+                          : 'bg-ink-700 text-zinc-300 hover:text-white hover:bg-white/[0.08]'
                       }`}
                     >
                       {hasUserVoted ? 'Retirar Voto' : 'Votar para Pular'}
@@ -1024,18 +1024,18 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
 
               {/* Queue List */}
               <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-violet-300/70 flex items-center justify-between">
+                <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 flex items-center justify-between">
                   <span>Próximos na Fila</span>
-                  <span className="text-[10px] font-mono text-slate-500">
+                  <span className="text-[10px] font-mono text-zinc-500">
                     {mediaState?.queue.length || 0} vídeos
                   </span>
                 </div>
 
                 {(!mediaState?.queue || mediaState.queue.length === 0) ? (
-                  <div className="text-center py-8 text-slate-500 space-y-1">
-                    <ListMusic className="w-8 h-8 mx-auto text-violet-500/40 mb-2" />
+                  <div className="text-center py-8 text-zinc-500 space-y-1">
+                    <ListMusic className="w-8 h-8 mx-auto text-volt mb-2" />
                     <p className="text-xs font-medium">A fila está vazia!</p>
-                    <p className="text-[11px] text-slate-600">
+                    <p className="text-[11px] text-zinc-600">
                       Use o campo no canto inferior esquerdo para adicionar links.
                     </p>
                   </div>
@@ -1043,9 +1043,9 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
                   mediaState.queue.map((item, index) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-2.5 p-2 bg-[#0b0714] hover:bg-[#160f29] border border-violet-500/15 rounded-xl transition group"
+                      className="flex items-center gap-2.5 p-2 bg-ink-900 hover:bg-ink-700 border border-white/[0.07] rounded-xl transition group"
                     >
-                      <span className="text-xs font-mono font-bold text-violet-400 w-4 text-center">
+                      <span className="text-xs font-mono font-bold text-volt w-4 text-center">
                         {index + 1}
                       </span>
                       <img
@@ -1054,10 +1054,10 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
                         className="w-12 h-9 rounded-lg object-cover shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-semibold text-slate-200 truncate" title={item.title}>
+                        <div className="text-xs font-semibold text-zinc-200 truncate" title={item.title}>
                           {item.title}
                         </div>
-                        <div className="text-[10px] text-slate-400 truncate">
+                        <div className="text-[10px] text-zinc-400 truncate">
                           {item.addedBy.name}
                         </div>
                       </div>
@@ -1072,7 +1072,7 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
               {/* Messages Scroll Area */}
               <div className="flex-1 p-3 overflow-y-auto space-y-3">
                 {channelMessages.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500 text-xs">
+                  <div className="text-center py-8 text-zinc-500 text-xs">
                     Nenhuma mensagem ainda. Converse com a galera enquanto assistem!
                   </div>
                 ) : (
@@ -1082,7 +1082,7 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
                       <div
                         key={msg.id}
                         className={`flex items-start gap-2 text-xs ${
-                          isDJ ? 'bg-fuchsia-500/10 border border-fuchsia-500/20 p-2 rounded-xl' : ''
+                          isDJ ? 'bg-white/[0.05] border border-white/[0.07] p-2 rounded-xl' : ''
                         }`}
                       >
                         <div
@@ -1096,15 +1096,15 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
                           <div className="flex items-baseline gap-1.5">
                             <span
                               onClick={() => !isDJ && onSelectUser?.({ id: msg.userId, name: msg.userName, avatarColor: msg.avatarColor, avatarUrl: msg.avatarUrl })}
-                              className={`font-bold ${isDJ ? 'text-fuchsia-400' : 'text-slate-200 cursor-pointer hover:underline'}`}
+                              className={`font-bold ${isDJ ? 'text-volt' : 'text-zinc-200 cursor-pointer hover:underline'}`}
                             >
                               {msg.userName}
                             </span>
-                            <span className="text-[9px] text-slate-500 font-mono">
+                            <span className="text-[9px] text-zinc-500 font-mono">
                               {msg.timestamp}
                             </span>
                           </div>
-                          <div className="text-slate-300 mt-0.5 break-words select-text">
+                          <div className="text-zinc-300 mt-0.5 break-words select-text">
                             {msg.text}
                           </div>
                         </div>
@@ -1116,19 +1116,19 @@ export const MediaRoom: React.FC<MediaRoomProps> = ({
               </div>
 
               {/* Chat Input */}
-              <form onSubmit={handleSendChatMessage} className="p-2.5 border-t border-violet-500/15 bg-[#0d0718]">
+              <form onSubmit={handleSendChatMessage} className="p-2.5 border-t border-white/[0.07] bg-ink-900">
                 <div className="relative flex items-center">
                   <input
                     type="text"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     placeholder="Conversar na sala..."
-                    className="w-full bg-[#160f29] border border-violet-500/25 rounded-xl pl-3 pr-9 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-400 transition select-text"
+                    className="w-full bg-ink-700 border border-white/[0.07] rounded-xl pl-3 pr-9 py-2 text-xs text-white placeholder-zinc-500 outline-none focus:border-volt/40 transition select-text"
                   />
                   <button
                     type="submit"
                     disabled={!chatInput.trim()}
-                    className="absolute right-1.5 p-1.5 text-violet-400 hover:text-white disabled:opacity-30 transition cursor-pointer"
+                    className="absolute right-1.5 p-1.5 text-volt hover:text-white disabled:opacity-30 transition cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>

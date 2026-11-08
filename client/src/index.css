@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/*
+ * Jolt — design "Volt" (minimalista)
+ * Grafite neutro + um único destaque amarelo-elétrico. Sem gradientes, bordas finas.
+ * O design anterior está salvo na branch `design-classico` / tag `design-classico-v2.1.1`.
+ */
+@theme {
+  --font-sans: 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+
+  /* Superfícies (do fundo para o mais elevado) */
+  --color-ink-950: #08080a;
+  --color-ink-900: #0e0e11;
+  --color-ink-850: #131317;
+  --color-ink-800: #19191e;
+  --color-ink-700: #222228;
+  --color-ink-600: #2c2c34;
+
+  /* Destaque elétrico */
+  --color-volt: #e8f55a;
+  --color-volt-soft: #f2fa9a;
+  --color-volt-deep: #b8c62a;
+}
+
 :root {
   color-scheme: dark;
 }
@@ -7,30 +30,46 @@
 body {
   margin: 0;
   padding: 0;
-  background-color: #080510;
-  color: #f1eff7;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background-color: var(--color-ink-950);
+  color: #ededf0;
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
   user-select: none;
   overflow: hidden;
 }
 
-/* Minimalist Violet Scrollbars */
+::selection {
+  background: rgba(232, 245, 90, 0.3);
+}
+
+/* Scrollbars discretas */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(17, 11, 31, 0.6);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.28);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 85, 247, 0.5);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Foco visível consistente para navegação por teclado */
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid rgba(232, 245, 90, 0.55);
+  outline-offset: 2px;
 }
 
 /* Botão "Atualizar App" com versão nova disponível: faixa verde passando + brilho pulsante */

@@ -103,14 +103,14 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   return (
     <div className="flex-1 bg-transparent flex flex-col justify-between overflow-hidden relative">
       {/* Channel Header */}
-      <div className="h-14 px-6 border-b border-violet-500/15 flex items-center justify-between bg-[#120b22]/80 backdrop-blur-md z-10">
+      <div className="h-14 px-6 border-b border-white/[0.07] flex items-center justify-between bg-ink-800/80 backdrop-blur-md z-10">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center text-violet-400">
+          <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.07] flex items-center justify-center text-volt">
             <Hash className="w-4 h-4" />
           </div>
           <div>
-            <div className="font-extrabold text-slate-100 text-sm">{channel.name}</div>
-            <div className="text-[11px] text-violet-300/60">Canal de bate-papo em tempo real</div>
+            <div className="font-semibold text-zinc-100 text-sm">{channel.name}</div>
+            <div className="text-[11px] text-zinc-500">Canal de bate-papo em tempo real</div>
           </div>
         </div>
       </div>
@@ -118,12 +118,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       {/* Message Feed */}
       <div className="flex-1 p-6 overflow-y-auto space-y-4">
         {channelMessages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3">
-            <div className="w-16 h-16 rounded-3xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400 shadow-lg">
+          <div className="h-full flex flex-col items-center justify-center text-zinc-500 space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-white/[0.05] border border-white/[0.07] flex items-center justify-center text-volt shadow-lg">
               <Hash className="w-8 h-8" />
             </div>
-            <div className="text-lg font-extrabold text-slate-200">Bem-vindo a #{channel.name}!</div>
-            <div className="text-xs text-violet-300/60">
+            <div className="text-lg font-semibold text-zinc-200">Bem-vindo a #{channel.name}!</div>
+            <div className="text-xs text-zinc-500">
               Esse é o início do canal #{channel.name}. Mande uma mensagem!
             </div>
           </div>
@@ -146,7 +146,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             return (
               <div
                 key={msg.id}
-                className="flex items-start gap-3.5 group hover:bg-violet-500/5 -mx-3 px-3 py-2 rounded-2xl transition"
+                className="flex items-start gap-3.5 group hover:bg-white/[0.05] -mx-3 px-3 py-2 rounded-xl transition"
               >
                 {msg.avatarUrl ? (
                   <img
@@ -175,15 +175,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       onClick={handleUserClick}
                       className={`text-sm font-bold truncate ${
                         !isSystem ? 'cursor-pointer hover:underline' : ''
-                      } ${isMe ? 'text-violet-400' : 'text-slate-100'}`}
+                      } ${isMe ? 'text-volt' : 'text-zinc-100'}`}
                     >
                       {msg.userName}
                     </span>
-                    <span className="text-[10px] text-violet-300/50 font-mono">{msg.timestamp}</span>
+                    <span className="text-[10px] text-zinc-500 font-mono">{msg.timestamp}</span>
                   </div>
 
                   {msg.text && (
-                    <div className="text-slate-200/90 text-sm mt-0.5 break-words select-text leading-relaxed">
+                    <div className="text-zinc-200/90 text-sm mt-0.5 break-words select-text leading-relaxed">
                       {msg.text}
                     </div>
                   )}
@@ -195,25 +195,25 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                           src={msg.attachment.url}
                           alt={msg.attachment.name}
                           onClick={() => setSelectedImageModal(msg.attachment!.url)}
-                          className="max-h-72 max-w-sm rounded-2xl object-contain border border-violet-500/25 cursor-pointer hover:opacity-95 transition shadow-lg"
+                          className="max-h-72 max-w-sm rounded-xl object-contain border border-white/[0.07] cursor-pointer hover:opacity-95 transition shadow-lg"
                         />
                       ) : (
-                        <div className="flex items-center gap-3 bg-[#170f2b] border border-violet-500/25 rounded-2xl p-3 max-w-sm shadow-md">
-                          <div className="w-10 h-10 rounded-xl bg-violet-600/20 text-violet-400 flex items-center justify-center shrink-0">
+                        <div className="flex items-center gap-3 bg-ink-700 border border-white/[0.07] rounded-xl p-3 max-w-sm shadow-md">
+                          <div className="w-10 h-10 rounded-xl bg-white/[0.08] text-volt flex items-center justify-center shrink-0">
                             <FileText className="w-5 h-5" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="text-xs font-semibold text-slate-200 truncate">
+                            <div className="text-xs font-semibold text-zinc-200 truncate">
                               {msg.attachment.name}
                             </div>
-                            <div className="text-[10px] text-violet-300/60">
+                            <div className="text-[10px] text-zinc-500">
                               {formatFileSize(msg.attachment.size)}
                             </div>
                           </div>
                           <a
                             href={msg.attachment.url}
                             download={msg.attachment.name}
-                            className="p-2 bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white rounded-xl transition"
+                            className="p-2 bg-white/[0.08] hover:bg-volt hover:text-ink-950 text-zinc-400 hover:text-white rounded-xl transition"
                             title="Baixar arquivo"
                           >
                             <Download className="w-4 h-4" />
@@ -240,7 +240,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         />
 
         {pendingAttachment && (
-          <div className="mb-2 bg-[#170f2b] border border-violet-500/40 rounded-2xl p-2.5 flex items-center justify-between gap-3 shadow-lg max-w-md">
+          <div className="mb-2 bg-ink-700 border border-white/[0.07] rounded-xl p-2.5 flex items-center justify-between gap-3 shadow-lg max-w-md">
             <div className="flex items-center gap-2.5 truncate">
               {pendingAttachment.type === 'image' ? (
                 <img
@@ -249,18 +249,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   className="w-10 h-10 rounded-xl object-cover border border-white/10"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-violet-600/20 text-violet-400 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-white/[0.08] text-volt flex items-center justify-center">
                   <FileText className="w-5 h-5" />
                 </div>
               )}
               <div className="truncate">
-                <div className="text-xs font-bold text-slate-200 truncate">{pendingAttachment.name}</div>
-                <div className="text-[10px] text-violet-300/60">{formatFileSize(pendingAttachment.size)}</div>
+                <div className="text-xs font-bold text-zinc-200 truncate">{pendingAttachment.name}</div>
+                <div className="text-[10px] text-zinc-500">{formatFileSize(pendingAttachment.size)}</div>
               </div>
             </div>
             <button
               onClick={() => setPendingAttachment(null)}
-              className="p-1 text-slate-400 hover:text-rose-400 rounded-lg transition cursor-pointer"
+              className="p-1 text-zinc-400 hover:text-rose-400 rounded-lg transition cursor-pointer"
               title="Cancelar anexo"
             >
               <X className="w-4 h-4" />
@@ -270,12 +270,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
         <form
           onSubmit={handleSubmit}
-          className="bg-[#160f29] border border-violet-500/25 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-xl focus-within:border-violet-400 transition-colors"
+          className="bg-ink-700 border border-white/[0.07] rounded-xl px-4 py-3 flex items-center gap-3 shadow-xl focus-within:border-volt/40 transition-colors"
         >
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="text-violet-300/70 hover:text-violet-300 transition cursor-pointer"
+            className="text-zinc-500 hover:text-zinc-400 transition cursor-pointer"
             title="Anexar arquivo ou imagem"
           >
             <Paperclip className="w-5 h-5" />
@@ -287,12 +287,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={`Conversar em #${channel.name}... (cole fotos com Ctrl+V)`}
-            className="flex-1 bg-transparent text-sm text-slate-100 placeholder-violet-300/40 outline-none select-text"
+            className="flex-1 bg-transparent text-sm text-zinc-100 placeholder-zinc-600 outline-none select-text"
           />
 
           <button
             type="button"
-            className="text-violet-300/70 hover:text-fuchsia-400 transition cursor-pointer"
+            className="text-zinc-500 hover:text-volt transition cursor-pointer"
             title="Emojis"
           >
             <Smile className="w-5 h-5" />
@@ -301,7 +301,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           <button
             type="submit"
             disabled={!inputText.trim() && !pendingAttachment}
-            className="p-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-40 text-white rounded-xl transition shadow-md shadow-violet-600/25 cursor-pointer"
+            className="p-2 bg-volt text-ink-950 disabled:opacity-40 rounded-xl transition shadow-md cursor-pointer"
           >
             <Send className="w-4 h-4" />
           </button>
@@ -317,7 +317,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           <img
             src={selectedImageModal}
             alt="Imagem ampliada"
-            className="max-h-[90vh] max-w-[90vw] object-contain rounded-2xl shadow-2xl"
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
           />
         </div>
       )}

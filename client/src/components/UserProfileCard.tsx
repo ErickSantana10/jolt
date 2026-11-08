@@ -106,7 +106,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-[350px] bg-[#120b22] border border-violet-500/35 rounded-3xl overflow-hidden shadow-2xl shadow-violet-950/60 relative select-none"
+        className="w-full max-w-[350px] bg-ink-800 border border-white/[0.07] rounded-2xl overflow-hidden shadow-2xl relative select-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Header Banner */}
@@ -180,19 +180,19 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
               <img
                 src={user.avatarUrl}
                 alt={displayName}
-                className="w-20 h-20 rounded-2xl object-cover border-4 border-[#120b22] shadow-xl"
+                className="w-20 h-20 rounded-xl object-cover border-4 border-ink-800 shadow-xl"
               />
             ) : (
               <div
-                className="w-20 h-20 rounded-2xl flex items-center justify-center font-extrabold text-white text-2xl border-4 border-[#120b22] shadow-xl"
+                className="w-20 h-20 rounded-xl flex items-center justify-center font-semibold text-white text-2xl border-4 border-ink-800 shadow-xl"
                 style={{ backgroundColor: user.avatarColor || '#8b5cf6' }}
               >
                 {displayName.slice(0, 1).toUpperCase()}
               </div>
             )}
             <div
-              className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-[#120b22] ${
-                isOnline ? 'bg-emerald-500' : 'bg-slate-600'
+              className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-ink-800 ${
+                isOnline ? 'bg-emerald-500' : 'bg-zinc-600'
               }`}
               title={isOnline ? 'Disponível' : 'Offline'}
             />
@@ -200,7 +200,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
 
           {/* Speech Bubble / Status Quote */}
           {bio && bio !== 'Nenhum recado ainda.' && (
-            <div className="absolute top-2 right-5 max-w-[175px] bg-[#1b1130] border border-violet-500/30 text-violet-100 text-xs px-3 py-1.5 rounded-2xl rounded-tl-none shadow-lg">
+            <div className="absolute top-2 right-5 max-w-[175px] bg-ink-700 border border-white/[0.07] text-zinc-200 text-xs px-3 py-1.5 rounded-xl rounded-tl-none shadow-lg">
               <span className="line-clamp-2 italic">“{bio}”</span>
             </div>
           )}
@@ -210,30 +210,30 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
         <div className="px-5 pb-4 space-y-3">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-black text-white truncate">{displayName}</h3>
+              <h3 className="text-lg font-bold text-white truncate">{displayName}</h3>
               {isServerOwner && (
                 <span title="Dono do Servidor">
                   <Crown className="w-4 h-4 text-amber-400 shrink-0" />
                 </span>
               )}
             </div>
-            <div className="text-xs text-violet-300/60 font-mono">
+            <div className="text-xs text-zinc-500 font-mono">
               @{displayName.toLowerCase().replace(/\s+/g, '')} • #{tag}
             </div>
           </div>
 
           {/* Badges / Gaming decorative strip */}
-          <div className="flex items-center gap-1.5 py-1 text-slate-400">
-            <span className="p-1.5 rounded-xl bg-[#0b0714] border border-violet-500/20 text-fuchsia-400" title="Gamer">
+          <div className="flex items-center gap-1.5 py-1 text-zinc-400">
+            <span className="p-1.5 rounded-xl bg-ink-900 border border-white/[0.07] text-volt" title="Gamer">
               <Gamepad2 className="w-4 h-4" />
             </span>
-            <span className="p-1.5 rounded-xl bg-[#0b0714] border border-violet-500/20 text-violet-400" title="Streamer">
+            <span className="p-1.5 rounded-xl bg-ink-900 border border-white/[0.07] text-volt" title="Streamer">
               <Tv className="w-4 h-4" />
             </span>
-            <span className="p-1.5 rounded-xl bg-[#0b0714] border border-violet-500/20 text-pink-400" title="AURA">
+            <span className="p-1.5 rounded-xl bg-ink-900 border border-white/[0.07] text-pink-400" title="AURA">
               <Swords className="w-4 h-4" />
             </span>
-            <span className="p-1.5 rounded-xl bg-[#0b0714] border border-violet-500/20 text-emerald-400" title="Janjacord Pro">
+            <span className="p-1.5 rounded-xl bg-ink-900 border border-white/[0.07] text-emerald-400" title="Janjacord Pro">
               <Sparkles className="w-4 h-4" />
             </span>
           </div>
@@ -270,15 +270,15 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
 
           {/* 4. Server Roles Section */}
           {server && (
-            <div className="space-y-1.5 pt-2 border-t border-violet-500/15">
+            <div className="space-y-1.5 pt-2 border-t border-white/[0.07]">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-300/60">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
                   Cargos no Servidor
                 </span>
                 {iAmAdmin && !isMe && !isServerOwner && (
                   <button
                     onClick={() => setShowRoleMenu(!showRoleMenu)}
-                    className="text-[11px] text-violet-400 hover:text-violet-300 font-semibold cursor-pointer"
+                    className="text-[11px] text-volt hover:text-zinc-400 font-semibold cursor-pointer"
                   >
                     + Gerenciar
                   </button>
@@ -308,14 +308,14 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
                   </span>
                 ))}
                 {!isServerOwner && userRoles.length === 0 && (
-                  <span className="text-xs text-slate-500 italic">Nenhum cargo atribuído.</span>
+                  <span className="text-xs text-zinc-500 italic">Nenhum cargo atribuído.</span>
                 )}
               </div>
 
               {/* Role Toggle Dropdown if Admin clicks Gerenciar */}
               {showRoleMenu && server.roles && (
-                <div className="p-2.5 bg-[#0b0714] border border-violet-500/30 rounded-2xl space-y-1 mt-1">
-                  <div className="text-[10px] text-violet-300/70 font-bold uppercase">Atribuir cargo:</div>
+                <div className="p-2.5 bg-ink-900 border border-white/[0.07] rounded-xl space-y-1 mt-1">
+                  <div className="text-[10px] text-zinc-500 font-bold uppercase">Atribuir cargo:</div>
                   {server.roles.map((r) => {
                     const hasRole = userRoleIds.includes(r.id);
                     return (
@@ -323,7 +323,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
                         key={r.id}
                         onClick={() => onAssignRole?.(user.id, r.id)}
                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition cursor-pointer ${
-                          hasRole ? 'bg-violet-600/30 text-white font-bold' : 'text-slate-300 hover:bg-violet-500/10'
+                          hasRole ? 'bg-white/[0.08] text-white font-bold' : 'text-zinc-300 hover:bg-white/[0.05]'
                         }`}
                       >
                         <span style={{ color: r.color }}>{r.name}</span>
@@ -338,7 +338,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
 
           {/* 5. Moderation Quick Actions (Admin Only) */}
           {iAmAdmin && !isMe && !isServerOwner && server && (
-            <div className="pt-2 border-t border-violet-500/15 space-y-2">
+            <div className="pt-2 border-t border-white/[0.07] space-y-2">
               <div className="flex gap-2">
                 <button
                   onClick={() => {
@@ -358,7 +358,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
                   }}
                   className={`py-1.5 px-3 rounded-xl text-xs font-semibold flex items-center gap-1 transition cursor-pointer border ${
                     confirmingKick
-                      ? 'bg-rose-600 text-white border-rose-500 shadow-lg shadow-rose-600/30'
+                      ? 'bg-rose-600 text-white border-rose-500 shadow-lg'
                       : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30'
                   }`}
                   title="Expulsar do servidor"
@@ -369,14 +369,14 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
               </div>
 
               {confirmingKick && (
-                <div className="p-3 bg-[#0b0714] border border-rose-500/40 rounded-2xl space-y-2.5 shadow-xl animate-in fade-in duration-150">
+                <div className="p-3 bg-ink-900 border border-rose-500/40 rounded-xl space-y-2.5 shadow-xl animate-in fade-in duration-150">
                   <div className="flex items-start gap-2">
                     <div className="w-7 h-7 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 shrink-0 mt-0.5">
                       <UserX className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-xs font-extrabold text-white">Expulsar {displayName}?</div>
-                      <p className="text-[11px] text-slate-300 leading-snug mt-0.5">
+                      <div className="text-xs font-semibold text-white">Expulsar {displayName}?</div>
+                      <p className="text-[11px] text-zinc-300 leading-snug mt-0.5">
                         Tem certeza que deseja remover{' '}
                         <span className="font-bold text-rose-300">{displayName}</span> do servidor{' '}
                         <span className="font-bold text-white">{server.name}</span>?
@@ -387,7 +387,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
                     <button
                       type="button"
                       onClick={() => setConfirmingKick(false)}
-                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-bold transition cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-bold transition cursor-pointer"
                     >
                       Cancelar
                     </button>
@@ -398,7 +398,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
                         setConfirmingKick(false);
                         onClose();
                       }}
-                      className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg transition cursor-pointer"
                     >
                       Sim, Expulsar
                     </button>
@@ -410,8 +410,8 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
 
           {/* Timeout Options Dropdown */}
           {showTimeoutMenu && server && onTimeoutMember && (
-            <div className="p-2.5 bg-[#0b0714] border border-violet-500/30 rounded-2xl space-y-1.5 text-xs">
-              <div className="text-[10px] text-violet-300/70 font-bold uppercase">Tempo de silenciamento:</div>
+            <div className="p-2.5 bg-ink-900 border border-white/[0.07] rounded-xl space-y-1.5 text-xs">
+              <div className="text-[10px] text-zinc-500 font-bold uppercase">Tempo de silenciamento:</div>
               <div className="grid grid-cols-2 gap-1.5">
                 {[
                   { label: '5 minutos', mins: 5 },
@@ -425,7 +425,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
                       onTimeoutMember(user.id, opt.mins);
                       setShowTimeoutMenu(false);
                     }}
-                    className="p-1.5 bg-[#160f29] hover:bg-violet-600 text-slate-200 hover:text-white rounded-xl text-center font-semibold transition cursor-pointer"
+                    className="p-1.5 bg-ink-700 hover:bg-volt hover:text-ink-950 text-zinc-200 hover:text-white rounded-xl text-center font-semibold transition cursor-pointer"
                   >
                     {opt.label}
                   </button>
@@ -436,19 +436,19 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
 
           {/* 6. Quick Direct Message Input */}
           {!isMe && onSendDM && (
-            <form onSubmit={handleSendQuickMessage} className="pt-2 border-t border-violet-500/15">
+            <form onSubmit={handleSendQuickMessage} className="pt-2 border-t border-white/[0.07]">
               <div className="relative flex items-center">
                 <input
                   type="text"
                   value={quickMessage}
                   onChange={(e) => setQuickMessage(e.target.value)}
                   placeholder={`Conversar com @${displayName}`}
-                  className="w-full bg-[#0b0714] border border-violet-500/25 rounded-2xl pl-3.5 pr-9 py-2.5 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-400 transition select-text"
+                  className="w-full bg-ink-900 border border-white/[0.07] rounded-xl pl-3.5 pr-9 py-2.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-volt/40 transition select-text"
                 />
                 <button
                   type="submit"
                   disabled={!quickMessage.trim()}
-                  className="absolute right-1.5 p-1.5 text-violet-400 hover:text-white disabled:opacity-30 transition cursor-pointer"
+                  className="absolute right-1.5 p-1.5 text-volt hover:text-white disabled:opacity-30 transition cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>

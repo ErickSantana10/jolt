@@ -22,8 +22,6 @@ import {
   PhoneOff,
   Plus,
   Download,
-  Home,
-  Volume2,
   X,
   Check,
   Monitor,
@@ -61,6 +59,31 @@ const DESKTOP_APP_DOWNLOAD_URL =
 const GITHUB_LATEST_RELEASE_API = 'https://api.github.com/repos/ErickSantana10/jolt/releases/latest';
 // A API pública do GitHub permite 60 consultas/hora por IP: checar a cada 15 min é seguro
 const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
+
+/** Botão quadrado do trilho lateral, com marcador amarelo quando ativo. */
+const RailButton: React.FC<{
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  children: React.ReactNode;
+}> = ({ active, onClick, title, children }) => (
+  <div className="relative w-full flex justify-center shrink-0 group">
+    <span
+      className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full bg-volt transition-all duration-200 ${
+        active ? 'h-6 opacity-100' : 'h-2 opacity-0 group-hover:opacity-40'
+      }`}
+    />
+    <button
+      onClick={onClick}
+      title={title}
+      className={`w-11 h-11 rounded-xl overflow-hidden transition-all duration-200 cursor-pointer ${
+        active ? 'ring-1 ring-volt/60 ring-offset-2 ring-offset-ink-950' : 'opacity-70 hover:opacity-100'
+      }`}
+    >
+      {children}
+    </button>
+  </div>
+);
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -1197,7 +1220,7 @@ export const App: React.FC = () => {
   const isAtHome = currentServer === null;
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-gradient-to-br from-[#07040d] via-[#0c0717] to-[#130924] text-slate-100 overflow-hidden font-sans">
+    <div className="flex h-screen w-screen bg-ink-950 text-zinc-100 overflow-hidden font-sans">
       {/* 1. Login/Register Modal */}
       {!isAuthenticated && (
         <LoginModal
@@ -1217,16 +1240,16 @@ export const App: React.FC = () => {
 
       {/* Toast Notification Customizada */}
       {toast && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-[#160f29] border border-violet-500/40 rounded-2xl px-4 py-3 shadow-2xl shadow-black/70 flex items-center gap-3 animate-in fade-in duration-150 select-none">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[100] bg-ink-700 border border-white/[0.07] rounded-xl px-4 py-3 shadow-2xl shadow-black/70 flex items-center gap-3 animate-in fade-in duration-150 select-none">
           <span
             className={`w-2.5 h-2.5 rounded-full animate-pulse shrink-0 ${
-              toast.type === 'error' ? 'bg-rose-500' : 'bg-violet-400'
+              toast.type === 'error' ? 'bg-rose-500' : 'bg-volt text-ink-950'
             }`}
           />
           <span className="text-xs font-bold text-white">{toast.text}</span>
           <button
             onClick={() => setToast(null)}
-            className="text-xs text-slate-400 hover:text-white font-bold ml-2 cursor-pointer"
+            className="text-xs text-zinc-400 hover:text-white font-bold ml-2 cursor-pointer"
           >
             ✕
           </button>
@@ -1235,20 +1258,20 @@ export const App: React.FC = () => {
 
       {/* 2. Outgoing Call Animated Overlay */}
       {callingFriend && (
-        <div className="fixed inset-0 z-50 bg-[#080510]/90 backdrop-blur-md flex flex-col items-center justify-center p-6 space-y-8 select-none">
+        <div className="fixed inset-0 z-50 bg-ink-900/90 backdrop-blur-md flex flex-col items-center justify-center p-6 space-y-8 select-none">
           <div className="relative flex items-center justify-center">
-            <div className="absolute w-44 h-44 rounded-full bg-violet-500/20 animate-ping" />
-            <div className="absolute w-36 h-36 rounded-full bg-fuchsia-500/30 animate-pulse" />
+            <div className="absolute w-44 h-44 rounded-full bg-white/[0.08] animate-ping" />
+            <div className="absolute w-36 h-36 rounded-full bg-white/[0.08] animate-pulse" />
 
             {callingFriend.avatarUrl ? (
               <img
                 src={callingFriend.avatarUrl}
                 alt={callingFriend.displayName}
-                className="w-28 h-28 rounded-full object-cover shadow-2xl relative border-4 border-violet-500 z-10"
+                className="w-28 h-28 rounded-full object-cover shadow-2xl relative border-4 border-volt/40 z-10"
               />
             ) : (
               <div
-                className="w-28 h-28 rounded-full flex items-center justify-center font-black text-white text-4xl shadow-2xl relative border-4 border-violet-500 z-10"
+                className="w-28 h-28 rounded-full flex items-center justify-center font-bold text-white text-4xl shadow-2xl relative border-4 border-volt/40 z-10"
                 style={{ backgroundColor: callingFriend.avatarColor }}
               >
                 {callingFriend.displayName.slice(0, 1).toUpperCase()}
@@ -1257,17 +1280,17 @@ export const App: React.FC = () => {
           </div>
 
           <div className="text-center space-y-1.5 z-10">
-            <div className="text-xs uppercase tracking-widest text-violet-300 font-bold flex items-center justify-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping" />
+            <div className="text-xs uppercase tracking-widest text-zinc-400 font-bold flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-volt text-ink-950 animate-ping" />
               Chamando...
             </div>
-            <h3 className="text-2xl font-black text-white">{callingFriend.displayName}</h3>
-            <p className="text-xs text-violet-300/60 font-mono">#{callingFriend.tag || '001'}</p>
+            <h3 className="text-2xl font-bold text-white">{callingFriend.displayName}</h3>
+            <p className="text-xs text-zinc-500 font-mono">#{callingFriend.tag || '001'}</p>
           </div>
 
           <button
             onClick={handleCancelOutgoingCall}
-            className="px-6 py-3.5 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl shadow-xl shadow-rose-600/30 flex items-center gap-2.5 font-bold text-sm transition cursor-pointer z-10"
+            className="px-6 py-3.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow-xl flex items-center gap-2.5 font-bold text-sm transition cursor-pointer z-10"
           >
             <PhoneOff className="w-5 h-5" />
             <span>Cancelar Chamada</span>
@@ -1277,7 +1300,7 @@ export const App: React.FC = () => {
 
       {/* 3. Incoming Call Ringing Banner */}
       {incomingCall && (
-        <div className="fixed top-6 right-6 z-50 bg-[#150d28] border-2 border-violet-500 rounded-3xl p-4 shadow-2xl shadow-violet-500/30 flex items-center gap-4 animate-bounce">
+        <div className="fixed top-6 right-6 z-50 bg-ink-700 border-2 border-volt/40 rounded-2xl p-4 shadow-2xl flex items-center gap-4 animate-bounce">
           <div className="relative">
             {incomingCall.fromUser.avatarUrl ? (
               <img
@@ -1293,26 +1316,26 @@ export const App: React.FC = () => {
                 {incomingCall.fromUser.displayName.slice(0, 1).toUpperCase()}
               </div>
             )}
-            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#150d28] flex items-center justify-center animate-ping" />
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-ink-700 flex items-center justify-center animate-ping" />
           </div>
 
           <div>
-            <div className="text-xs text-violet-300 font-bold">Chamada recebida...</div>
-            <div className="text-sm font-extrabold text-white">{incomingCall.fromUser.displayName}</div>
-            <div className="text-[11px] text-violet-300/60 font-mono">#{incomingCall.fromUser.tag || '001'}</div>
+            <div className="text-xs text-zinc-400 font-bold">Chamada recebida...</div>
+            <div className="text-sm font-semibold text-white">{incomingCall.fromUser.displayName}</div>
+            <div className="text-[11px] text-zinc-500 font-mono">#{incomingCall.fromUser.tag || '001'}</div>
           </div>
 
           <div className="flex items-center gap-2 ml-2">
             <button
               onClick={handleAnswerCall}
-              className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl shadow-lg transition cursor-pointer"
+              className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg transition cursor-pointer"
               title="Atender Chamada"
             >
               <Phone className="w-5 h-5" />
             </button>
             <button
               onClick={handleDeclineCall}
-              className="p-3 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl shadow-lg transition cursor-pointer"
+              className="p-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl shadow-lg transition cursor-pointer"
               title="Recusar"
             >
               <PhoneOff className="w-5 h-5" />
@@ -1321,150 +1344,84 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* 4. TOP HORIZONTAL NAVIGATION DOCK (Novo Layout Minimalista & Elegante em Tons Violeta) */}
-      <header className="h-16 px-4 flex items-center justify-between gap-4 select-none shrink-0">
-        {/* Left: Brand Logo + Home Pill + Horizontal Server Pills */}
-        <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
-          {/* Brand & Home Button */}
-          <button
-            onClick={handleSelectHome}
-            className={`flex items-center gap-2.5 pl-2 pr-4 py-1.5 rounded-2xl transition-all duration-200 cursor-pointer shrink-0 border ${
-              isAtHome
-                ? 'bg-gradient-to-r from-violet-600/35 to-fuchsia-600/25 border-violet-400/60 text-white shadow-lg shadow-violet-600/20'
-                : 'bg-[#120b20]/90 hover:bg-[#19102c] border-violet-500/20 text-slate-300 hover:text-white'
-            }`}
-            title="Ir para Início e Amigos"
-          >
-            <img
-              src="/logo.jpg"
-              alt="Jolt"
-              className="w-8 h-8 rounded-xl object-cover shadow-md border border-violet-400/40"
-            />
-            <div className="text-left">
-              <div className="text-xs font-black tracking-tight leading-none text-white">Jolt</div>
-              <div className="text-[10px] text-violet-300/80 font-semibold flex items-center gap-1 mt-0.5">
-                <Home className="w-2.5 h-2.5" />
-                <span>Início</span>
-              </div>
-            </div>
-          </button>
+      {/* 4. TRILHO DE NAVEGAÇÃO (design Volt): Início, servidores, criar e atualizar */}
+      <nav className="w-[68px] shrink-0 flex flex-col items-center py-3 gap-2 select-none">
+        <RailButton active={isAtHome} onClick={handleSelectHome} title="Início — amigos e mensagens">
+          <img src="/logo.jpg" alt="Jolt" className="w-full h-full object-cover" />
+        </RailButton>
 
-          <div className="w-[1px] h-7 bg-violet-500/20 mx-0.5 shrink-0" />
+        <div className="w-6 h-px bg-white/[0.08] my-1 shrink-0" />
 
-          {/* Horizontal Server Pills */}
-          {servers.map((server) => {
-            const isSelected = currentServer?.id === server.id;
-            return (
-              <button
-                key={server.id}
-                onClick={() => handleSelectServer(server)}
-                className={`flex items-center gap-2.5 pl-2 pr-3.5 py-1.5 rounded-2xl transition-all duration-200 cursor-pointer shrink-0 border ${
-                  isSelected
-                    ? 'bg-gradient-to-r from-violet-600/35 to-purple-600/25 border-violet-400/60 text-white shadow-lg shadow-violet-600/20 scale-[1.02]'
-                    : 'bg-[#120b20]/80 hover:bg-[#1a112e] border-violet-500/15 text-slate-300 hover:text-white'
-                }`}
-                title={server.name}
-              >
-                {server.iconUrl ? (
-                  <img
-                    src={server.iconUrl}
-                    alt={server.name}
-                    className="w-7 h-7 rounded-xl object-cover shadow-sm border border-violet-400/30 shrink-0"
-                  />
-                ) : (
-                  <div
-                    className="w-7 h-7 rounded-xl flex items-center justify-center font-black text-white text-xs shadow-sm shrink-0"
-                    style={{ backgroundColor: server.iconColor }}
-                  >
-                    {getServerInitials(server.name)}
-                  </div>
-                )}
-                <span className="text-xs font-bold max-w-[120px] truncate">{server.name}</span>
-              </button>
-            );
-          })}
+        <div className="flex-1 w-full flex flex-col items-center gap-2 overflow-y-auto no-scrollbar py-0.5">
+          {servers.map((server) => (
+            <RailButton
+              key={server.id}
+              active={currentServer?.id === server.id}
+              onClick={() => handleSelectServer(server)}
+              title={server.name}
+            >
+              {server.iconUrl ? (
+                <img src={server.iconUrl} alt={server.name} className="w-full h-full object-cover" />
+              ) : (
+                <span
+                  className="w-full h-full flex items-center justify-center text-[13px] font-semibold text-white"
+                  style={{ backgroundColor: server.iconColor }}
+                >
+                  {getServerInitials(server.name)}
+                </span>
+              )}
+            </RailButton>
+          ))}
 
-          {/* Create / Join Server Button */}
           <button
             onClick={() => setIsCreateServerOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-violet-600/15 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 transition-all duration-200 text-xs font-bold cursor-pointer shrink-0 shadow-sm"
-            title="Criar ou Entrar em um Servidor"
+            className="w-11 h-11 shrink-0 rounded-xl border border-dashed border-white/[0.12] text-zinc-500 hover:text-volt hover:border-volt/50 hover:bg-volt/[0.06] flex items-center justify-center transition cursor-pointer"
+            title="Criar ou entrar em um servidor"
           >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Novo Espaço</span>
+            <Plus className="w-[18px] h-[18px]" />
           </button>
         </div>
 
-        {/* Right: Active Call Pill + Download Desktop App Button */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          {/* Active Voice Call Pill in Top Bar */}
-          {currentVoiceChannelId && (
-            <div className="hidden md:flex items-center gap-2 bg-emerald-500/15 border border-emerald-500/35 px-3 py-1.5 rounded-2xl">
-              <button
-                onClick={handleViewVoiceRoom}
-                className="flex items-center gap-2 text-xs font-bold text-emerald-300 hover:text-white transition cursor-pointer"
-              >
-                <Volume2 className="w-3.5 h-3.5 animate-pulse" />
-                <span>Ver Transmissão</span>
-              </button>
-              <button
-                onClick={handleLeaveVoice}
-                className="p-1 text-emerald-300 hover:text-rose-400 transition cursor-pointer"
-                title="Desconectar"
-              >
-                <PhoneOff className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-
-          {/* Botão Atualizar App — só no desktop (no site não faz sentido: cada deploy já atualiza) */}
-          {isElectron && (
+        {/* Atualizar App — só no desktop. Com versão nova: faixa verde passando + selo "novo" */}
+        {isElectron && (
           <button
             onClick={handleCheckAndAutoUpdate}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-extrabold tracking-wide shadow-sm transition cursor-pointer ${
+            className={`relative w-11 h-11 shrink-0 rounded-xl border flex items-center justify-center transition cursor-pointer ${
               hasUpdateAvailable
-                ? 'jolt-update-shimmer bg-gradient-to-r from-emerald-600/30 to-violet-600/30 hover:from-emerald-500/40 hover:to-violet-500/40 border-emerald-400/60 text-emerald-200 shadow-emerald-500/20'
-                : 'bg-[#170f2b] hover:bg-violet-600/25 border-violet-500/35 text-violet-200 hover:text-white'
+                ? 'jolt-update-shimmer bg-emerald-500/10 border-emerald-400/50 text-emerald-300'
+                : 'border-white/[0.06] text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.05]'
             }`}
             title={
-              hasUpdateAvailable
+              isUpdating
+                ? `Atualizando ${updatePercent}%`
+                : hasUpdateAvailable
                 ? `Nova versão v${latestGitHubVersion} disponível — clique para atualizar`
-                : 'Verificar no GitHub se há nova versão e atualizar automaticamente'
+                : `Jolt v${APP_VERSION} — verificar atualizações`
             }
           >
-            <RefreshCw
-              className={`w-3.5 h-3.5 ${
-                hasUpdateAvailable ? 'text-emerald-400' : 'text-violet-400'
-              } ${isUpdating || isCheckingUpdate ? 'animate-spin' : ''}`}
-            />
-            <span>
-              {isUpdating
-                ? `Atualizando ${updatePercent}%`
-                : isCheckingUpdate
-                ? 'Verificando...'
-                : hasUpdateAvailable
-                ? `Atualizar (v${latestGitHubVersion})`
-                : 'Atualizar App'}
-            </span>
+            <RefreshCw className={`w-[18px] h-[18px] ${isUpdating || isCheckingUpdate ? 'animate-spin' : ''}`} />
+            {hasUpdateAvailable && !isUpdating && (
+              <span className="absolute -top-1.5 -right-1.5 px-1 rounded-md bg-emerald-400 text-ink-950 text-[9px] font-bold leading-[14px]">
+                novo
+              </span>
+            )}
           </button>
-          )}
+        )}
 
-          {/* Botão Baixar App para Windows (.exe) — Visível no Site */}
-          {!isElectron && (
-            <button
-              onClick={() => setIsDownloadModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-black tracking-wide shadow-lg shadow-violet-600/30 transition cursor-pointer"
-              title="Baixar Aplicativo Jolt para Windows (.exe)"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Baixar App</span>
-            </button>
-          )}
-        </div>
-      </header>
+        {/* Baixar App — só no site */}
+        {!isElectron && (
+          <button
+            onClick={() => setIsDownloadModalOpen(true)}
+            className="w-11 h-11 shrink-0 rounded-xl bg-volt text-ink-950 hover:brightness-110 flex items-center justify-center transition cursor-pointer"
+            title="Baixar o Jolt para Windows"
+          >
+            <Download className="w-[18px] h-[18px]" />
+          </button>
+        )}
+      </nav>
 
-      {/* 5. MAIN WORKSPACE: Floating Left Panel + Floating Center Stage */}
-      <div className="flex-1 flex gap-3 px-3 pb-3 overflow-hidden min-h-0">
+      {/* 5. ÁREA DE TRABALHO: sidebar + palco */}
+      <div className="flex-1 flex gap-2 py-2 pr-2 overflow-hidden min-h-0 min-w-0">
         {/* Left Context Panel */}
         <Sidebar
           currentUser={currentUser}
@@ -1496,12 +1453,15 @@ export const App: React.FC = () => {
           onLeaveVoice={handleLeaveVoice}
           onToggleMute={handleToggleMute}
           onToggleDeafen={handleToggleDeafen}
+          isScreenSharing={isScreenSharing}
+          onToggleScreenShare={handleToggleScreenShare}
+          voiceChannelName={activeVoiceChannel?.name || null}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onLogout={handleLogout}
         />
 
-        {/* Floating Main Stage */}
-        <main className="flex-1 bg-[#100a1e]/85 backdrop-blur-xl border border-violet-500/15 rounded-3xl flex overflow-hidden shadow-2xl min-w-0">
+        {/* Palco principal */}
+        <main className="flex-1 bg-ink-900 border border-white/[0.06] rounded-2xl flex overflow-hidden min-w-0">
           {currentVoiceChannelId && activeVoiceChannel && (
             <div
               className={
@@ -1618,12 +1578,12 @@ export const App: React.FC = () => {
           onClick={() => setIsDownloadModalOpen(false)}
         >
           <div
-            className="w-full max-w-md bg-[#120b22] border border-violet-500/35 rounded-3xl p-6 shadow-2xl shadow-violet-950/60 space-y-5 relative"
+            className="w-full max-w-md bg-ink-800 border border-white/[0.07] rounded-2xl p-6 shadow-2xl space-y-5 relative"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setIsDownloadModalOpen(false)}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+              className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1632,18 +1592,18 @@ export const App: React.FC = () => {
               <img
                 src="/logo.jpg"
                 alt="Jolt"
-                className="w-16 h-16 rounded-2xl object-cover border-2 border-violet-400/50 shadow-xl"
+                className="w-16 h-16 rounded-xl object-cover border-2 border-volt/40 shadow-xl"
               />
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/[0.08] text-zinc-400 border border-white/[0.07]">
                   Windows 10 / 11 (64-bit)
                 </span>
-                <h3 className="text-lg font-black text-white mt-1">Jolt para Windows</h3>
-                <p className="text-xs text-violet-300/70">Versão Desktop Oficial v{APP_VERSION} (.exe)</p>
+                <h3 className="text-lg font-bold text-white mt-1">Jolt para Windows</h3>
+                <p className="text-xs text-zinc-500">Versão Desktop Oficial v{APP_VERSION} (.exe)</p>
               </div>
             </div>
 
-            <div className="bg-[#0b0714] border border-violet-500/20 rounded-2xl p-4 space-y-2.5 text-xs text-slate-200">
+            <div className="bg-ink-900 border border-white/[0.07] rounded-xl p-4 space-y-2.5 text-xs text-zinc-200">
               <div className="flex items-center gap-2.5">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>Seletor nativo de Telas Inteiras, Janelas e Jogos</span>
@@ -1668,12 +1628,12 @@ export const App: React.FC = () => {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setIsDownloadModalOpen(false)}
-                className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-sm font-black tracking-wide shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2.5 transition cursor-pointer"
+                className="w-full py-3.5 px-5 rounded-xl bg-volt text-ink-950 text-sm font-bold tracking-wide shadow-xl flex items-center justify-center gap-2.5 transition cursor-pointer"
               >
                 <Download className="w-4 h-4" />
                 <span>Baixar Jolt-Windows.exe</span>
               </a>
-              <div className="text-[11px] text-center text-violet-300/50 flex items-center justify-center gap-1.5">
+              <div className="text-[11px] text-center text-zinc-500 flex items-center justify-center gap-1.5">
                 <Monitor className="w-3.5 h-3.5" />
                 <span>Executável portátil — basta baixar e abrir, sem instalação complexa!</span>
               </div>
@@ -1691,13 +1651,13 @@ export const App: React.FC = () => {
           }}
         >
           <div
-            className="w-full max-w-md bg-[#120b22] border border-violet-500/40 rounded-3xl p-6 shadow-2xl shadow-violet-950/70 space-y-5 relative"
+            className="w-full max-w-md bg-ink-800 border border-white/[0.07] rounded-2xl p-6 shadow-2xl space-y-5 relative"
             onClick={(e) => e.stopPropagation()}
           >
             {!isUpdating && (
               <button
                 onClick={() => setIsUpdateModalOpen(false)}
-                className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+                className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1708,18 +1668,18 @@ export const App: React.FC = () => {
                 <img
                   src="/logo.jpg"
                   alt="Jolt"
-                  className="w-16 h-16 rounded-2xl object-cover border-2 border-violet-400/50 shadow-xl"
+                  className="w-16 h-16 rounded-xl object-cover border-2 border-volt/40 shadow-xl"
                 />
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-violet-600 border-2 border-[#120b22] flex items-center justify-center text-white">
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-volt text-ink-950 border-2 border-ink-800 flex items-center justify-center">
                   <Sparkles className="w-3.5 h-3.5" />
                 </div>
               </div>
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   Versão Atual: v{APP_VERSION}
                 </span>
-                <h3 className="text-lg font-black text-white mt-1">Central de Atualização Jolt</h3>
-                <p className="text-xs text-violet-300/70">
+                <h3 className="text-lg font-bold text-white mt-1">Central de Atualização Jolt</h3>
+                <p className="text-xs text-zinc-500">
                   {isElectron
                     ? 'Baixe e instale a versão mais recente sem precisar fechar manualmente'
                     : 'Sincronize seu navegador ou baixe a última versão do App Desktop'}
@@ -1727,8 +1687,8 @@ export const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-[#0b0714] border border-violet-500/20 rounded-2xl p-4 space-y-2 text-xs text-slate-200">
-              <div className="text-[11px] font-black uppercase tracking-wider text-violet-300 mb-1">
+            <div className="bg-ink-900 border border-white/[0.07] rounded-xl p-4 space-y-2 text-xs text-zinc-200">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
                 Novidades desta versão (v{APP_VERSION}):
               </div>
               <div className="flex items-start gap-2">
@@ -1752,19 +1712,19 @@ export const App: React.FC = () => {
             )}
 
             {isCheckingUpdate ? (
-              <div className="p-4 rounded-2xl bg-[#0b0714] border border-violet-500/30 flex items-center justify-center gap-2.5 text-xs font-bold text-violet-300">
-                <RefreshCw className="w-4 h-4 animate-spin text-fuchsia-400" />
+              <div className="p-4 rounded-xl bg-ink-900 border border-white/[0.07] flex items-center justify-center gap-2.5 text-xs font-bold text-zinc-400">
+                <RefreshCw className="w-4 h-4 animate-spin text-volt" />
                 <span>Consultando GitHub por novas versões...</span>
               </div>
             ) : !isUpdating && !hasUpdateAvailable ? (
-              <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5 text-xs font-bold text-emerald-300">
+              <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5 text-xs font-bold text-emerald-300">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>
                   Seu Jolt já está na versão mais recente do GitHub (v{APP_VERSION})!
                 </span>
               </div>
             ) : !isUpdating && hasUpdateAvailable ? (
-              <div className="p-3.5 rounded-2xl bg-violet-500/15 border border-violet-400/40 flex items-center justify-between text-xs font-bold text-violet-200">
+              <div className="p-3.5 rounded-xl bg-white/[0.05] border border-white/[0.07] flex items-center justify-between text-xs font-bold text-zinc-200">
                 <span>Nova versão encontrada no GitHub:</span>
                 <span className="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
                   v{latestGitHubVersion}
@@ -1773,21 +1733,21 @@ export const App: React.FC = () => {
             ) : null}
 
             {isUpdating ? (
-              <div className="space-y-2.5 bg-[#0b0714] p-4 rounded-2xl border border-violet-500/30">
-                <div className="flex items-center justify-between text-xs font-extrabold">
-                  <span className="text-violet-300 flex items-center gap-2">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-fuchsia-400" />
+              <div className="space-y-2.5 bg-ink-900 p-4 rounded-xl border border-white/[0.07]">
+                <div className="flex items-center justify-between text-xs font-semibold">
+                  <span className="text-zinc-400 flex items-center gap-2">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-volt" />
                     Baixando Jolt v{latestGitHubVersion} do GitHub...
                   </span>
                   <span className="text-white font-mono">{updatePercent}%</span>
                 </div>
-                <div className="w-full h-3 bg-[#1a112e] rounded-full overflow-hidden border border-violet-500/20">
+                <div className="w-full h-3 bg-ink-700 rounded-full overflow-hidden border border-white/[0.07]">
                   <div
-                    className="h-full bg-gradient-to-r from-violet-600 via-purple-500 to-fuchsia-500 transition-all duration-150"
+                    className="h-full bg-volt text-ink-950 transition-all duration-150"
                     style={{ width: `${Math.max(4, updatePercent)}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
                   <span>
                     {updateTransferredMB} MB / {updateTotalMB !== '0.0' ? `${updateTotalMB} MB` : '...'}
                   </span>
@@ -1799,7 +1759,7 @@ export const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleInstallAppUpdate}
-                  className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-sm font-black tracking-wide shadow-xl shadow-violet-600/30 flex items-center justify-center gap-2.5 transition cursor-pointer"
+                  className="w-full py-3.5 px-5 rounded-xl bg-volt text-ink-950 text-sm font-bold tracking-wide shadow-xl flex items-center justify-center gap-2.5 transition cursor-pointer"
                 >
                   <RefreshCw className="w-4 h-4" />
                   <span>
@@ -1816,9 +1776,9 @@ export const App: React.FC = () => {
                     href={DESKTOP_APP_DOWNLOAD_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#19102c] hover:bg-[#23173d] border border-violet-500/30 text-violet-200 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-ink-700 hover:bg-ink-600 border border-white/[0.07] text-zinc-200 hover:text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
                   >
-                    <Download className="w-3.5 h-3.5 text-violet-400" />
+                    <Download className="w-3.5 h-3.5 text-volt" />
                     <span>Baixar Jolt-Windows.exe Atualizado</span>
                   </a>
                 )}

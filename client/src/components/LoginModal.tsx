@@ -79,33 +79,33 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#07040d] flex items-center justify-center p-4 select-none overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-ink-950 flex items-center justify-center p-4 select-none overflow-y-auto">
       {/* Ambient Violet/Fuchsia Background Glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-violet-600/20 blur-[130px]" />
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-fuchsia-600/20 blur-[130px]" />
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-white/[0.08] blur-[130px]" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-white/[0.08] blur-[130px]" />
       </div>
 
-      <div className="w-full max-w-md bg-[#120b20]/90 backdrop-blur-2xl border border-violet-500/25 rounded-[2rem] shadow-2xl shadow-violet-950/60 overflow-hidden relative z-10">
+      <div className="w-full max-w-md bg-ink-800/90 backdrop-blur-2xl border border-white/[0.07] rounded-[2rem] shadow-2xl overflow-hidden relative z-10">
         {/* Top Banner with New Logo */}
-        <div className="bg-gradient-to-br from-violet-900/40 via-[#180f2c] to-fuchsia-900/30 p-7 text-center relative border-b border-violet-500/15">
+        <div className="bg-transparent p-7 text-center relative border-b border-white/[0.07]">
           <div className="relative w-20 h-20 mx-auto mb-3">
-            <div className="absolute inset-0 rounded-2xl bg-violet-500/40 blur-xl animate-pulse" />
+            <div className="absolute inset-0 rounded-xl bg-white/[0.12] blur-xl animate-pulse" />
             <img
               src="/logo.jpg"
               alt="Jolt"
-              className="relative w-20 h-20 rounded-2xl object-cover shadow-2xl border-2 border-violet-400/50"
+              className="relative w-20 h-20 rounded-xl object-cover shadow-2xl border-2 border-volt/40"
             />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Jolt</h1>
-          <p className="text-xs text-violet-200/75 mt-1">
+          <h1 className="text-2xl font-bold text-white tracking-tight">Jolt</h1>
+          <p className="text-xs text-zinc-200 mt-1">
             Voz cristalina, salas de cinema sincronizadas e transmissão 60 FPS
           </p>
         </div>
 
         {/* Mode Switcher */}
         <div className="px-6 pt-5">
-          <div className="grid grid-cols-2 bg-[#0a0612] p-1 rounded-2xl border border-violet-500/15">
+          <div className="grid grid-cols-2 bg-ink-900 p-1 rounded-xl border border-white/[0.07]">
             <button
               type="button"
               onClick={() => {
@@ -114,8 +114,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               }}
               className={`py-2.5 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 mode === 'login'
-                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-600/25'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-volt text-ink-950 shadow-lg'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <LogIn className="w-3.5 h-3.5" />
@@ -129,8 +129,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               }}
               className={`py-2.5 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 mode === 'register'
-                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-600/25'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-volt text-ink-950 shadow-lg'
+                  : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
               <UserPlus className="w-3.5 h-3.5" />
@@ -149,7 +149,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
           {/* Name Input */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-violet-300/80 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
               Seu Nome
             </label>
             <input
@@ -160,10 +160,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Erick"
               maxLength={24}
-              className="w-full bg-[#0a0612] border border-violet-500/20 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition select-text"
+              className="w-full bg-ink-900 border border-white/[0.07] rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-volt/40 transition select-text"
             />
             {mode === 'register' && (
-              <span className="text-[11px] text-violet-300/60 mt-1 block">
+              <span className="text-[11px] text-zinc-500 mt-1 block">
                 Uma # automática (ex: #001) será gerada caso outra pessoa tenha o mesmo nome.
               </span>
             )}
@@ -171,18 +171,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
           {/* Password Input */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-violet-300/80 mb-1.5">
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
               Senha
             </label>
             <div className="relative">
-              <Lock className="w-4 h-4 text-violet-400/60 absolute left-3.5 top-3.5" />
+              <Lock className="w-4 h-4 text-volt absolute left-3.5 top-3.5" />
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-[#0a0612] border border-violet-500/20 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 transition select-text"
+                className="w-full bg-ink-900 border border-white/[0.07] rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-volt/40 transition select-text"
               />
             </div>
           </div>
@@ -190,10 +190,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           {/* Register-only fields: Avatar Color */}
           {mode === 'register' && (
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-violet-300/80 mb-2">
+              <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">
                 Cor do seu Perfil
               </label>
-              <div className="flex items-center justify-between gap-2 bg-[#0a0612] p-2.5 rounded-xl border border-violet-500/20">
+              <div className="flex items-center justify-between gap-2 bg-ink-900 p-2.5 rounded-xl border border-white/[0.07]">
                 {AVATAR_COLORS.map((color) => (
                   <button
                     key={color}
@@ -213,20 +213,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <button
             type="button"
             onClick={() => setRememberMe((prev) => !prev)}
-            className="w-full flex items-center gap-3 p-3 rounded-xl bg-[#0a0612]/90 border border-violet-500/20 hover:border-violet-500/40 transition text-left cursor-pointer"
+            className="w-full flex items-center gap-3 p-3 rounded-xl bg-ink-900/90 border border-white/[0.07] hover:border-white/[0.07] transition text-left cursor-pointer"
           >
             <div
               className={`w-5 h-5 rounded-lg flex items-center justify-center border transition shrink-0 ${
                 rememberMe
-                  ? 'bg-violet-600 border-violet-400 text-white shadow-sm shadow-violet-600/40'
-                  : 'bg-[#120b20] border-violet-500/30 text-transparent'
+                  ? 'bg-volt text-ink-950 border-volt/40 shadow-sm'
+                  : 'bg-ink-800 border-white/[0.07] text-transparent'
               }`}
             >
               <Check className="w-3.5 h-3.5 stroke-[3]" />
             </div>
             <div>
               <div className="text-xs font-bold text-white">Manter conectado neste computador</div>
-              <div className="text-[11px] text-violet-300/60">
+              <div className="text-[11px] text-zinc-500">
                 Lembra sua senha e entra direto sempre que abrir o Jolt
               </div>
             </div>
@@ -235,7 +235,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <button
             type="submit"
             disabled={loading || isAutoReconnecting}
-            className="w-full py-3.5 px-4 bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-violet-600/30 transition flex items-center justify-center gap-2 text-sm cursor-pointer mt-2"
+            className="w-full py-3.5 px-4 bg-volt text-ink-950 disabled:opacity-50 font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm cursor-pointer mt-2"
           >
             <Sparkles className="w-4 h-4" />
             <span>
@@ -253,7 +253,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <button
               type="button"
               onClick={onCancelAutoReconnect}
-              className="w-full py-2 text-xs font-semibold text-violet-300/80 hover:text-white transition cursor-pointer"
+              className="w-full py-2 text-xs font-semibold text-zinc-400 hover:text-white transition cursor-pointer"
             >
               Trocar de conta
             </button>
@@ -261,30 +261,30 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
           {/* Desktop App Download Banner (Visible on Web Browser) */}
           {!isElectron && (
-            <div className="pt-3 border-t border-violet-500/15">
+            <div className="pt-3 border-t border-white/[0.07]">
               <a
                 href={downloadUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 px-4 bg-[#19102c] hover:bg-[#22163b] border border-violet-500/30 rounded-xl flex items-center justify-between group transition cursor-pointer"
+                className="w-full py-3 px-4 bg-ink-700 hover:bg-ink-600 border border-white/[0.07] rounded-xl flex items-center justify-between group transition cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center text-violet-400 group-hover:scale-105 transition-transform">
+                  <div className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/[0.07] flex items-center justify-center text-volt group-hover:scale-105 transition-transform">
                     <Monitor className="w-4 h-4" />
                   </div>
                   <div className="text-left">
-                    <div className="text-xs font-extrabold text-white flex items-center gap-1.5">
+                    <div className="text-xs font-semibold text-white flex items-center gap-1.5">
                       <span>Baixar App para Windows</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 font-mono">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.08] text-zinc-400 font-mono">
                         .EXE
                       </span>
                     </div>
-                    <div className="text-[11px] text-violet-300/60">
+                    <div className="text-[11px] text-zinc-500">
                       Transmissão de tela e jogos com áudio nativo
                     </div>
                   </div>
                 </div>
-                <Download className="w-4 h-4 text-violet-400 group-hover:translate-y-0.5 transition-transform" />
+                <Download className="w-4 h-4 text-volt group-hover:translate-y-0.5 transition-transform" />
               </a>
             </div>
           )}

@@ -66,18 +66,18 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-[#110c1d] border border-violet-500/30 rounded-3xl shadow-2xl shadow-violet-950/50 overflow-hidden flex flex-col max-h-[88vh]"
+        className="w-full max-w-3xl bg-ink-850 border border-white/[0.07] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-violet-500/15 flex items-center justify-between bg-gradient-to-r from-violet-950/40 via-[#150f24] to-fuchsia-950/30">
+        <div className="px-6 py-4 border-b border-white/[0.07] flex items-center justify-between bg-transparent">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shadow-lg shadow-violet-600/20">
+            <div className="w-10 h-10 rounded-xl bg-white/[0.08] border border-white/[0.07] flex items-center justify-center text-volt shadow-lg">
               <Monitor className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-black text-white tracking-tight">Transmitir Tela ou Jogo</h3>
-              <p className="text-xs text-violet-300/70">
+              <h3 className="text-base font-bold text-white tracking-tight">Transmitir Tela ou Jogo</h3>
+              <p className="text-xs text-zinc-500">
                 Escolha o monitor ou janela que deseja compartilhar na chamada
               </p>
             </div>
@@ -85,7 +85,7 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition cursor-pointer"
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -93,7 +93,7 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
 
         {/* Tabs & Refresh */}
         <div className="px-6 pt-4 pb-2 flex items-center justify-between">
-          <div className="flex items-center gap-2 bg-[#0b0713] p-1 rounded-2xl border border-violet-500/15">
+          <div className="flex items-center gap-2 bg-ink-900 p-1 rounded-xl border border-white/[0.07]">
             <button
               type="button"
               onClick={() => {
@@ -103,8 +103,8 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
               }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                 activeTab === 'screens'
-                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-600/25'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-volt text-ink-950 shadow-lg'
+                  : 'text-zinc-400 hover:text-white'
               }`}
             >
               <Monitor className="w-4 h-4" />
@@ -120,8 +120,8 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
               }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
                 activeTab === 'windows'
-                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-600/25'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-volt text-ink-950 shadow-lg'
+                  : 'text-zinc-400 hover:text-white'
               }`}
             >
               <AppWindow className="w-4 h-4" />
@@ -132,7 +132,7 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
           <button
             type="button"
             onClick={loadSources}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-300 text-xs font-semibold transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.07] text-zinc-400 text-xs font-semibold transition cursor-pointer"
             title="Atualizar lista de janelas"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -143,11 +143,11 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
         {/* Grid of Sources */}
         <div className="flex-1 overflow-y-auto px-6 py-3">
           {loading && sources.length === 0 ? (
-            <div className="py-16 text-center text-sm text-violet-300/70">
+            <div className="py-16 text-center text-sm text-zinc-500">
               Carregando prévia das telas e jogos abertos...
             </div>
           ) : displayedSources.length === 0 ? (
-            <div className="py-16 text-center text-sm text-slate-400">
+            <div className="py-16 text-center text-sm text-zinc-400">
               Nenhuma fonte encontrada nesta categoria.
             </div>
           ) : (
@@ -158,10 +158,10 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
                   <div
                     key={src.id}
                     onClick={() => setSelectedSourceId(src.id)}
-                    className={`group relative rounded-2xl overflow-hidden border-2 transition-all cursor-pointer flex flex-col bg-[#161026] ${
+                    className={`group relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer flex flex-col bg-ink-800 ${
                       isSelected
-                        ? 'border-violet-500 ring-2 ring-violet-500/30 shadow-xl shadow-violet-600/20 scale-[1.01]'
-                        : 'border-violet-500/15 hover:border-violet-500/40'
+                        ? 'border-volt/40 ring-2 ring-volt/40 shadow-xl scale-[1.01]'
+                        : 'border-white/[0.07] hover:border-white/[0.07]'
                     }`}
                   >
                     <div className="aspect-video w-full bg-black relative overflow-hidden">
@@ -171,19 +171,19 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
                         className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
                       />
                       {isSelected && (
-                        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-violet-600 text-white flex items-center justify-center shadow-lg">
+                        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-volt text-ink-950 flex items-center justify-center shadow-lg">
                           <Check className="w-3.5 h-3.5" />
                         </div>
                       )}
                     </div>
 
-                    <div className="p-2.5 flex items-center gap-2 bg-[#140e22]">
+                    <div className="p-2.5 flex items-center gap-2 bg-ink-800">
                       {src.appIcon ? (
                         <img src={src.appIcon} alt="" className="w-4 h-4 object-contain shrink-0" />
                       ) : (
-                        <Monitor className="w-4 h-4 text-violet-400 shrink-0" />
+                        <Monitor className="w-4 h-4 text-volt shrink-0" />
                       )}
-                      <span className="text-xs font-semibold text-slate-200 truncate">{src.name}</span>
+                      <span className="text-xs font-semibold text-zinc-200 truncate">{src.name}</span>
                     </div>
                   </div>
                 );
@@ -193,12 +193,12 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
         </div>
 
         {/* Settings Bar: Audio & Quality */}
-        <div className="px-6 py-4 bg-[#0d0816] border-t border-violet-500/15 space-y-3">
+        <div className="px-6 py-4 bg-ink-900 border-t border-white/[0.07] space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Quality Presets */}
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-bold text-violet-300/80 mr-1 flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-fuchsia-400" />
+              <span className="text-xs font-bold text-zinc-400 mr-1 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-volt" />
                 Qualidade:
               </span>
               {(['potato', 'balanced', 'gamer'] as StreamQualityPreset[]).map((key) => {
@@ -211,8 +211,8 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
                     onClick={() => setQuality(key)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
                       active
-                        ? 'bg-violet-600/25 border-violet-400 text-white shadow-sm'
-                        : 'bg-[#161026] border-violet-500/15 text-slate-400 hover:text-slate-200'
+                        ? 'bg-white/[0.08] border-volt/40 text-white shadow-sm'
+                        : 'bg-ink-800 border-white/[0.07] text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     {key === 'potato' ? '480p Leve' : key === 'balanced' ? '720p 30FPS' : '1080p 60FPS'}
@@ -222,15 +222,15 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
             </div>
 
             {/* System Audio Toggle */}
-            <label className="flex items-center gap-2.5 cursor-pointer bg-[#161026] px-3.5 py-2 rounded-xl border border-violet-500/20 hover:border-violet-500/40 transition">
+            <label className="flex items-center gap-2.5 cursor-pointer bg-ink-800 px-3.5 py-2 rounded-xl border border-white/[0.07] hover:border-white/[0.07] transition">
               <input
                 type="checkbox"
                 checked={shareAudio}
                 onChange={(e) => setShareAudio(e.target.checked)}
-                className="accent-violet-500 w-4 h-4 rounded cursor-pointer"
+                className="accent-volt w-4 h-4 rounded cursor-pointer"
               />
-              <Volume2 className={`w-4 h-4 ${shareAudio ? 'text-violet-400' : 'text-slate-500'}`} />
-              <span className="text-xs font-bold text-slate-200">Compartilhar Áudio do Sistema</span>
+              <Volume2 className={`w-4 h-4 ${shareAudio ? 'text-volt' : 'text-zinc-500'}`} />
+              <span className="text-xs font-bold text-zinc-200">Compartilhar Áudio do Sistema</span>
             </label>
           </div>
 
@@ -239,7 +239,7 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold transition cursor-pointer"
+              className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 text-xs font-bold transition cursor-pointer"
             >
               Cancelar
             </button>
@@ -247,7 +247,7 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
               type="button"
               onClick={handleStart}
               disabled={!selectedSourceId && sources.length === 0}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-40 text-white text-xs font-black tracking-wide shadow-lg shadow-violet-600/30 transition cursor-pointer"
+              className="px-6 py-2.5 rounded-xl bg-volt text-ink-950 disabled:opacity-40 text-xs font-bold tracking-wide shadow-lg transition cursor-pointer"
             >
               Iniciar Transmissão
             </button>

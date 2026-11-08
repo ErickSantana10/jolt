@@ -3,6 +3,7 @@ import {
   Mic,
   MicOff,
   Headphones,
+  HeadphoneOff,
   Monitor,
   PhoneOff,
   Maximize2,
@@ -186,7 +187,7 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
   };
 
   return (
-    <div className="flex-1 bg-[#0a0612] flex flex-col justify-between overflow-hidden relative select-none">
+    <div className="flex-1 bg-ink-900 flex flex-col justify-between overflow-hidden relative select-none">
       {/* Hidden Audio Players for Remote Voice Peers */}
       {audioStreams.map((item) => (
         <RemoteAudioPlayer
@@ -199,14 +200,14 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
       ))}
 
       {/* Top Header */}
-      <div className="h-14 px-6 border-b border-violet-500/15 flex items-center justify-between bg-[#100a1d]/90 backdrop-blur-md z-10 shrink-0">
+      <div className="h-14 px-6 border-b border-white/[0.07] flex items-center justify-between bg-ink-850/90 backdrop-blur-md z-10 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/25 flex items-center justify-center">
-            <Volume2 className="w-4 h-4 text-violet-400 animate-pulse" />
+          <div className="w-8 h-8 rounded-xl bg-white/[0.05] border border-white/[0.07] flex items-center justify-center">
+            <Volume2 className="w-4 h-4 text-volt animate-pulse" />
           </div>
           <div>
-            <div className="font-bold text-slate-100 text-sm">{channel.name}</div>
-            <div className="text-[11px] text-violet-300/60 font-medium">
+            <div className="font-bold text-zinc-100 text-sm">{channel.name}</div>
+            <div className="text-[11px] text-zinc-500 font-medium">
               {sortedUsersInRoom.length} {sortedUsersInRoom.length === 1 ? 'participante' : 'participantes'} na sala
             </div>
           </div>
@@ -217,16 +218,16 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowQualityMenu(!showQualityMenu)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#19112c] hover:bg-[#23183c] text-xs font-bold text-violet-200 border border-violet-500/25 transition cursor-pointer"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-ink-700 hover:bg-ink-600 text-xs font-bold text-zinc-200 border border-white/[0.07] transition cursor-pointer"
             >
-              <Sliders className="w-3.5 h-3.5 text-fuchsia-400" />
+              <Sliders className="w-3.5 h-3.5 text-volt" />
               <span>Qualidade: {QUALITY_PRESETS[streamQuality].label}</span>
             </button>
 
             {showQualityMenu && (
-              <div className="absolute right-0 mt-2 w-80 bg-[#140d24] border border-violet-500/30 rounded-2xl shadow-2xl p-3 z-50 space-y-2">
-                <div className="text-xs font-bold text-violet-300 px-2 py-1 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-fuchsia-400" />
+              <div className="absolute right-0 mt-2 w-80 bg-ink-800 border border-white/[0.07] rounded-xl shadow-2xl p-3 z-50 space-y-2">
+                <div className="text-xs font-bold text-zinc-400 px-2 py-1 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-volt" />
                   <span>Otimizador de Transmissão</span>
                 </div>
                 {(Object.keys(QUALITY_PRESETS) as StreamQualityPreset[]).map((key) => {
@@ -241,19 +242,19 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                       }}
                       className={`w-full text-left p-2.5 rounded-xl transition flex flex-col gap-0.5 cursor-pointer ${
                         active
-                          ? 'bg-violet-600/25 border border-violet-500/50 text-white'
-                          : 'hover:bg-[#1e1433] text-slate-300'
+                          ? 'bg-white/[0.08] border border-volt/40 text-white'
+                          : 'hover:bg-ink-600 text-zinc-300'
                       }`}
                     >
                       <div className="text-xs font-bold flex items-center justify-between">
                         <span>{preset.label}</span>
                         {active && (
-                          <span className="text-[10px] bg-violet-600 text-white px-1.5 py-0.5 rounded-md">
+                          <span className="text-[10px] bg-volt text-ink-950 px-1.5 py-0.5 rounded-md">
                             ATIVO
                           </span>
                         )}
                       </div>
-                      <div className="text-[11px] text-slate-400">{preset.description}</div>
+                      <div className="text-[11px] text-zinc-400">{preset.description}</div>
                     </button>
                   );
                 })}
@@ -264,10 +265,10 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-[#19112c] hover:bg-[#23183c] border border-violet-500/25 text-violet-200 transition cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-ink-700 hover:bg-ink-600 border border-white/[0.07] text-zinc-200 transition cursor-pointer"
               title="Configurações de Voz e Dispositivos"
             >
-              <Settings className="w-3.5 h-3.5 text-violet-400" />
+              <Settings className="w-3.5 h-3.5 text-volt" />
               <span className="hidden sm:inline">Áudio</span>
             </button>
           )}
@@ -276,8 +277,8 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
             onClick={() => setShowCallChat(!showCallChat)}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
               showCallChat
-                ? 'bg-gradient-to-r from-violet-600 to-purple-600 border-violet-400 text-white shadow-lg shadow-violet-600/20'
-                : 'bg-[#19112c] hover:bg-[#23183c] border-violet-500/25 text-violet-200'
+                ? 'bg-volt text-ink-950 border-volt/40 shadow-lg'
+                : 'bg-ink-700 hover:bg-ink-600 border-white/[0.07] text-zinc-200'
             }`}
             title="Abrir/Fechar Chat da Chamada"
           >
@@ -355,10 +356,10 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                 </div>
 
                 {/* Sidebar dos Participantes à Direita */}
-                <div className="w-56 lg:w-64 bg-[#110a1f]/95 backdrop-blur-md rounded-2xl border border-violet-500/20 p-2.5 flex flex-col gap-2 shrink-0 overflow-hidden max-h-full">
-                  <div className="text-[11px] font-bold text-violet-300/80 px-2 py-1 uppercase tracking-wider flex items-center justify-between border-b border-violet-500/15 shrink-0">
+                <div className="w-56 lg:w-64 bg-ink-800/95 backdrop-blur-md rounded-xl border border-white/[0.07] p-2.5 flex flex-col gap-2 shrink-0 overflow-hidden max-h-full">
+                  <div className="text-[11px] font-bold text-zinc-400 px-2 py-1 uppercase tracking-wider flex items-center justify-between border-b border-white/[0.07] shrink-0">
                     <span>Na chamada ({sortedUsersInRoom.length})</span>
-                    <span className="text-[10px] text-fuchsia-400 font-mono font-semibold">Ao Vivo</span>
+                    <span className="text-[10px] text-volt font-mono font-semibold">Ao Vivo</span>
                   </div>
                   <div className="flex-1 flex flex-col gap-2 overflow-y-auto pr-0.5">
                     {sortedUsersInRoom.map((user) => {
@@ -459,10 +460,10 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                 return (
                   <div
                     key={user.id}
-                    className={`aspect-video bg-[#130d21]/90 rounded-3xl border transition-all duration-150 flex flex-col items-center justify-center relative p-6 shadow-xl ${
+                    className={`aspect-video bg-ink-800/90 rounded-2xl border transition-all duration-150 flex flex-col items-center justify-center relative p-6 shadow-xl ${
                       speaking
-                        ? 'border-violet-400 ring-2 ring-violet-500/40 shadow-violet-500/20'
-                        : 'border-violet-500/15 hover:border-violet-500/30'
+                        ? 'border-volt/40 ring-2 ring-volt/40'
+                        : 'border-white/[0.07] hover:border-white/[0.07]'
                     }`}
                   >
                     <div className="relative flex items-center justify-center">
@@ -471,13 +472,13 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                           src={user.avatarUrl}
                           alt={displayName}
                           className={`w-20 h-20 rounded-full object-cover shadow-xl transition-all duration-150 ${
-                            speaking ? 'scale-105 ring-4 ring-violet-400' : ''
+                            speaking ? 'scale-105 ring-4 ring-volt/40' : ''
                           }`}
                         />
                       ) : (
                         <div
-                          className={`w-20 h-20 rounded-full flex items-center justify-center text-2xl font-black text-white shadow-xl transition-all duration-150 ${
-                            speaking ? 'scale-105 ring-4 ring-violet-400' : ''
+                          className={`w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-xl transition-all duration-150 ${
+                            speaking ? 'scale-105 ring-4 ring-volt/40' : ''
                           }`}
                           style={{ backgroundColor: user.avatarColor }}
                         >
@@ -485,22 +486,24 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                         </div>
                       )}
 
-                      {user.isMuted && (
-                        <div className="absolute -bottom-1 -right-1 bg-rose-500 text-white p-1.5 rounded-full shadow-md border-2 border-[#130d21]">
-                          <MicOff className="w-3.5 h-3.5" />
+                      {(user.isMuted || user.isDeafened) && (
+                        <div className="absolute -bottom-1 -right-1 bg-rose-500 text-white p-1.5 rounded-full shadow-md border-2 border-ink-800" title={user.isDeafened ? 'Áudio desativado' : 'Microfone mutado'}>
+                          {user.isDeafened ? <HeadphoneOff className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
                         </div>
                       )}
                     </div>
 
                     <div className="mt-4 flex items-center gap-2 max-w-full px-2">
-                      <span className="font-bold text-slate-100 text-sm truncate">
+                      <span className="font-bold text-zinc-100 text-sm truncate">
                         {displayName} {isMe && '(Você)'}
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-violet-300/60 mt-0.5">
+                    <div className="text-[11px] text-zinc-500 mt-0.5">
                       {user.isScreenSharing
                         ? 'Transmitindo tela'
+                        : user.isDeafened
+                        ? 'Áudio desativado'
                         : user.isMuted
                         ? 'Microfone mutado'
                         : speaking
@@ -516,15 +519,15 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
 
         {/* Side Chat Drawer inside Voice Call */}
         {showCallChat && (
-          <div className="w-80 bg-[#120b20] border-l border-violet-500/15 flex flex-col justify-between h-full shrink-0">
-            <div className="p-3.5 border-b border-violet-500/15 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
-                <MessageSquare className="w-4 h-4 text-violet-400" />
+          <div className="w-80 bg-ink-800 border-l border-white/[0.07] flex flex-col justify-between h-full shrink-0">
+            <div className="p-3.5 border-b border-white/[0.07] flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-bold text-zinc-200">
+                <MessageSquare className="w-4 h-4 text-volt" />
                 <span>{isDMCall ? `Chat com ${targetDMFriend?.displayName}` : 'Chat da Sala'}</span>
               </div>
               <button
                 onClick={() => setShowCallChat(false)}
-                className="text-slate-400 hover:text-white text-xs cursor-pointer"
+                className="text-zinc-400 hover:text-white text-xs cursor-pointer"
               >
                 ✕
               </button>
@@ -532,7 +535,7 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
 
             <div className="flex-1 p-3 overflow-y-auto space-y-3">
               {activeCallMessages.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-center text-xs text-slate-500 px-4">
+                <div className="h-full flex items-center justify-center text-center text-xs text-zinc-500 px-4">
                   Envie mensagens ou fotos aqui enquanto conversa por voz!
                 </div>
               ) : (
@@ -543,27 +546,27 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                     : m.userName || targetDMFriend?.displayName || 'Amigo';
 
                   return (
-                    <div key={m.id} className="text-xs space-y-1 bg-[#19112b] p-2.5 rounded-2xl border border-violet-500/10">
+                    <div key={m.id} className="text-xs space-y-1 bg-ink-700 p-2.5 rounded-xl border border-white/[0.07]">
                       <div className="flex items-center justify-between">
-                        <span className={`font-bold ${isMe ? 'text-violet-400' : 'text-slate-200'}`}>
+                        <span className={`font-bold ${isMe ? 'text-volt' : 'text-zinc-200'}`}>
                           {senderName}
                         </span>
-                        <span className="text-[10px] text-slate-500 font-mono">{m.timestamp}</span>
+                        <span className="text-[10px] text-zinc-500 font-mono">{m.timestamp}</span>
                       </div>
-                      {m.text && <p className="text-slate-300 break-words select-text">{m.text}</p>}
+                      {m.text && <p className="text-zinc-300 break-words select-text">{m.text}</p>}
                       {m.attachment && (
                         <div className="mt-1.5">
                           {m.attachment.type === 'image' ? (
                             <img
                               src={m.attachment.url}
                               alt={m.attachment.name}
-                              className="max-h-40 rounded-xl object-contain border border-violet-500/20"
+                              className="max-h-40 rounded-xl object-contain border border-white/[0.07]"
                             />
                           ) : (
                             <a
                               href={m.attachment.url}
                               download={m.attachment.name}
-                              className="flex items-center gap-2 bg-[#211638] p-2 rounded-xl text-violet-300 hover:text-white"
+                              className="flex items-center gap-2 bg-ink-600 p-2 rounded-xl text-zinc-400 hover:text-white"
                             >
                               <FileText className="w-4 h-4 shrink-0" />
                               <span className="truncate flex-1">{m.attachment.name}</span>
@@ -579,7 +582,7 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
               <div ref={chatEndRef} />
             </div>
 
-            <div className="p-3 border-t border-violet-500/15">
+            <div className="p-3 border-t border-white/[0.07]">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -587,8 +590,8 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                 className="hidden"
               />
               {pendingAttachment && (
-                <div className="mb-2 bg-[#1a112c] p-2 rounded-xl flex items-center justify-between text-xs border border-violet-500/30">
-                  <span className="truncate text-slate-200 font-medium">{pendingAttachment.name}</span>
+                <div className="mb-2 bg-ink-700 p-2 rounded-xl flex items-center justify-between text-xs border border-white/[0.07]">
+                  <span className="truncate text-zinc-200 font-medium">{pendingAttachment.name}</span>
                   <button onClick={() => setPendingAttachment(null)} className="text-rose-400 ml-2 cursor-pointer">
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -596,12 +599,12 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
               )}
               <form
                 onSubmit={handleChatSubmit}
-                className="flex items-center gap-1.5 bg-[#19112b] border border-violet-500/20 rounded-xl px-2.5 py-2"
+                className="flex items-center gap-1.5 bg-ink-700 border border-white/[0.07] rounded-xl px-2.5 py-2"
               >
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-slate-400 hover:text-violet-400 cursor-pointer"
+                  className="text-zinc-400 hover:text-volt cursor-pointer"
                 >
                   <Paperclip className="w-4 h-4" />
                 </button>
@@ -610,11 +613,11 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="Mensagem na call..."
-                  className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 outline-none select-text"
+                  className="flex-1 bg-transparent text-xs text-white placeholder-zinc-500 outline-none select-text"
                 />
                 <button
                   type="submit"
-                  className="p-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg cursor-pointer"
+                  className="p-1.5 bg-volt text-ink-950 hover:brightness-110 rounded-lg cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
                 </button>
@@ -626,13 +629,13 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
 
       {/* Bottom Floating Control Dock */}
       <div className={`flex justify-center z-10 shrink-0 ${focusedStream ? 'pb-2.5 pt-1' : 'pb-5 pt-2'}`}>
-        <div className="bg-[#150e26]/95 backdrop-blur-xl border border-violet-500/25 px-6 py-3 rounded-2xl shadow-2xl shadow-violet-950/60 flex items-center gap-3.5">
+        <div className="bg-ink-800/95 backdrop-blur-xl border border-white/[0.07] px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3.5">
           <button
             onClick={onToggleMute}
             className={`p-3.5 rounded-xl font-semibold transition flex items-center gap-2 cursor-pointer ${
               isMuted
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30'
-                : 'bg-[#211738] text-slate-200 hover:bg-[#2b1e47]'
+                : 'bg-ink-600 text-zinc-200 hover:bg-ink-600'
             }`}
             title={isMuted ? 'Ativar Microfone' : 'Mutar Microfone'}
           >
@@ -644,19 +647,19 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
             className={`p-3.5 rounded-xl font-semibold transition flex items-center gap-2 cursor-pointer ${
               isDeafened
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30'
-                : 'bg-[#211738] text-slate-200 hover:bg-[#2b1e47]'
+                : 'bg-ink-600 text-zinc-200 hover:bg-ink-600'
             }`}
             title={isDeafened ? 'Ativar Áudio' : 'Desativar Áudio'}
           >
-            <Headphones className="w-5 h-5" />
+            {isDeafened ? <HeadphoneOff className="w-5 h-5" /> : <Headphones className="w-5 h-5" />}
           </button>
 
           <button
             onClick={onToggleScreenShare}
             className={`px-5 py-3.5 rounded-xl font-bold text-sm transition flex items-center gap-2 cursor-pointer ${
               isScreenSharing
-                ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-600/30 hover:from-violet-500 hover:to-fuchsia-500'
-                : 'bg-[#211738] text-slate-200 hover:bg-[#2b1e47]'
+                ? 'bg-volt text-ink-950 shadow-lg'
+                : 'bg-ink-600 text-zinc-200 hover:bg-ink-600'
             }`}
           >
             <Monitor className="w-5 h-5" />
@@ -666,18 +669,18 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="p-3.5 rounded-xl bg-[#211738] text-slate-200 hover:bg-[#2b1e47] transition cursor-pointer"
+              className="p-3.5 rounded-xl bg-ink-600 text-zinc-200 hover:bg-ink-600 transition cursor-pointer"
               title="Configurações de Voz & Vídeo"
             >
               <Settings className="w-5 h-5" />
             </button>
           )}
 
-          <div className="w-[1px] h-8 bg-violet-500/20 mx-1" />
+          <div className="w-[1px] h-8 bg-white/[0.08] mx-1" />
 
           <button
             onClick={onLeaveVoice}
-            className="px-5 py-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-lg shadow-rose-600/30 transition flex items-center gap-2 cursor-pointer"
+            className="px-5 py-3.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-lg transition flex items-center gap-2 cursor-pointer"
           >
             <PhoneOff className="w-5 h-5" />
             <span>Desconectar</span>
@@ -702,10 +705,10 @@ const ParticipantCompactTile: React.FC<{
     <div
       className={`${
         compact ? 'w-44 h-16 px-3 py-1.5' : 'w-48 h-20 px-3.5 py-2'
-      } bg-[#130d21]/95 rounded-2xl border flex items-center gap-3 transition-all duration-150 shadow-lg shrink-0 ${
+      } bg-ink-800/95 rounded-xl border flex items-center gap-3 transition-all duration-150 shadow-lg shrink-0 ${
         speaking
-          ? 'border-violet-400 ring-2 ring-violet-500/40 bg-[#19112b]'
-          : 'border-violet-500/20 hover:border-violet-500/35'
+          ? 'border-volt/40 ring-2 ring-volt/40 bg-ink-700'
+          : 'border-white/[0.07] hover:border-white/[0.07]'
       }`}
     >
       <div className="relative shrink-0">
@@ -716,15 +719,15 @@ const ParticipantCompactTile: React.FC<{
             className={`${
               compact ? 'w-10 h-10' : 'w-11 h-11'
             } rounded-full object-cover transition-transform duration-150 ${
-              speaking ? 'ring-2 ring-violet-400 scale-105' : ''
+              speaking ? 'ring-2 ring-volt/40 scale-105' : ''
             }`}
           />
         ) : (
           <div
             className={`${
               compact ? 'w-10 h-10 text-sm' : 'w-11 h-11 text-base'
-            } rounded-full flex items-center justify-center font-black text-white transition-transform duration-150 ${
-              speaking ? 'ring-2 ring-violet-400 scale-105' : ''
+            } rounded-full flex items-center justify-center font-bold text-white transition-transform duration-150 ${
+              speaking ? 'ring-2 ring-volt/40 scale-105' : ''
             }`}
             style={{ backgroundColor: user.avatarColor }}
           >
@@ -732,20 +735,22 @@ const ParticipantCompactTile: React.FC<{
           </div>
         )}
 
-        {user.isMuted && (
-          <div className="absolute -bottom-1 -right-1 bg-rose-500 text-white p-1 rounded-full border-2 border-[#130d21]">
-            <MicOff className="w-2.5 h-2.5" />
+        {(user.isMuted || user.isDeafened) && (
+          <div className="absolute -bottom-1 -right-1 bg-rose-500 text-white p-1 rounded-full border-2 border-ink-800" title={user.isDeafened ? 'Áudio desativado' : 'Microfone mutado'}>
+            {user.isDeafened ? <HeadphoneOff className="w-2.5 h-2.5" /> : <MicOff className="w-2.5 h-2.5" />}
           </div>
         )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-bold text-slate-100 truncate">
+        <div className="text-xs font-bold text-zinc-100 truncate">
           {displayName} {isMe && '(Você)'}
         </div>
-        <div className="text-[10px] text-violet-300/70 truncate mt-0.5 flex items-center gap-1">
+        <div className="text-[10px] text-zinc-500 truncate mt-0.5 flex items-center gap-1">
           {user.isScreenSharing ? (
-            <span className="text-fuchsia-400 font-bold">● Transmitindo</span>
+            <span className="text-volt font-bold">● Transmitindo</span>
+          ) : user.isDeafened ? (
+            <span>Áudio off</span>
           ) : user.isMuted ? (
             <span>Mutado</span>
           ) : speaking ? (
@@ -772,8 +777,8 @@ const ParticipantSidebarCard: React.FC<{
     <div
       className={`w-full p-2.5 rounded-xl border flex items-center gap-3 transition-all duration-150 ${
         speaking
-          ? 'bg-[#1e1435] border-violet-400 ring-1 ring-violet-500/50 shadow-md shadow-violet-500/10'
-          : 'bg-[#140d24]/90 border-violet-500/15 hover:border-violet-500/30'
+          ? 'bg-ink-600 border-volt/40 ring-1 ring-volt/40 shadow-md'
+          : 'bg-ink-800/90 border-white/[0.07] hover:border-white/[0.07]'
       }`}
     >
       <div className="relative shrink-0">
@@ -787,7 +792,7 @@ const ParticipantSidebarCard: React.FC<{
           />
         ) : (
           <div
-            className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-black text-white transition-transform duration-150 ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white transition-transform duration-150 ${
               speaking ? 'ring-2 ring-emerald-400 scale-105' : ''
             }`}
             style={{ backgroundColor: user.avatarColor }}
@@ -796,24 +801,26 @@ const ParticipantSidebarCard: React.FC<{
           </div>
         )}
 
-        {user.isMuted && (
-          <div className="absolute -bottom-1 -right-1 bg-rose-500 text-white p-1 rounded-full border-2 border-[#140d24]">
-            <MicOff className="w-2.5 h-2.5" />
+        {(user.isMuted || user.isDeafened) && (
+          <div className="absolute -bottom-1 -right-1 bg-rose-500 text-white p-1 rounded-full border-2 border-ink-800" title={user.isDeafened ? 'Áudio desativado' : 'Microfone mutado'}>
+            {user.isDeafened ? <HeadphoneOff className="w-2.5 h-2.5" /> : <MicOff className="w-2.5 h-2.5" />}
           </div>
         )}
       </div>
 
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-bold text-slate-100 truncate flex items-center gap-1.5">
+        <div className="text-xs font-bold text-zinc-100 truncate flex items-center gap-1.5">
           <span className="truncate">{displayName}</span>
-          {isMe && <span className="text-[10px] text-violet-400 font-semibold shrink-0">(Você)</span>}
+          {isMe && <span className="text-[10px] text-volt font-semibold shrink-0">(Você)</span>}
         </div>
-        <div className="text-[11px] text-violet-300/70 truncate mt-0.5 flex items-center gap-1">
+        <div className="text-[11px] text-zinc-500 truncate mt-0.5 flex items-center gap-1">
           {user.isScreenSharing ? (
-            <span className="text-fuchsia-400 font-bold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 animate-pulse" />
+            <span className="text-volt font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-volt text-ink-950 animate-pulse" />
               Transmitindo
             </span>
+          ) : user.isDeafened ? (
+            <span className="text-rose-400/80">Áudio off</span>
           ) : user.isMuted ? (
             <span className="text-rose-400/80">Mutado</span>
           ) : speaking ? (
@@ -822,7 +829,7 @@ const ParticipantSidebarCard: React.FC<{
               Falando...
             </span>
           ) : (
-            <span className="text-slate-400">Na chamada</span>
+            <span className="text-zinc-400">Na chamada</span>
           )}
         </div>
       </div>
@@ -975,12 +982,12 @@ const ScreenShareCard: React.FC<{
         if (needsUserAudioUnlock) handleManualAudioUnlock();
       }}
       onDoubleClick={handleToggleNativeFullscreen}
-      className={`bg-black rounded-2xl overflow-hidden border relative group shadow-2xl flex items-center justify-center transition-all ${
+      className={`bg-black rounded-xl overflow-hidden border relative group shadow-2xl flex items-center justify-center transition-all ${
         isNativeFullscreen
           ? 'w-screen h-screen rounded-none border-0'
           : isFocused
-          ? 'w-full h-full max-h-full border-violet-500/40 shadow-violet-950/60'
-          : 'w-full aspect-video max-h-[62vh] border-violet-500/50 shadow-violet-900/25'
+          ? 'w-full h-full max-h-full border-white/[0.07]'
+          : 'w-full aspect-video max-h-[62vh] border-volt/40'
       }`}
     >
       <video
@@ -999,7 +1006,7 @@ const ScreenShareCard: React.FC<{
             e.stopPropagation();
             handleManualAudioUnlock();
           }}
-          className="absolute z-20 px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-xs font-black shadow-2xl flex items-center gap-2 animate-bounce cursor-pointer"
+          className="absolute z-20 px-5 py-3 rounded-xl bg-volt text-ink-950 text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce cursor-pointer"
         >
           <Volume2 className="w-4 h-4" />
           <span>Clique para Ativar o Som da Transmissão</span>
@@ -1009,9 +1016,9 @@ const ScreenShareCard: React.FC<{
       {/* Badge sempre visível no canto superior esquerdo */}
       <div className="absolute top-3.5 left-4 flex items-center gap-2 pointer-events-none z-10">
         <span
-          className={`px-2.5 py-1 text-[10px] font-black text-white rounded-lg uppercase tracking-wider shadow-lg ${
+          className={`px-2.5 py-1 text-[10px] font-bold text-white rounded-lg uppercase tracking-wider shadow-lg ${
             isLocal
-              ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600'
+              ? 'bg-volt text-ink-950'
               : 'bg-rose-600 animate-pulse'
           }`}
         >
@@ -1039,13 +1046,13 @@ const ScreenShareCard: React.FC<{
               <button
                 type="button"
                 onClick={() => setLocalMuteStream(!localMuteStream)}
-                className="text-slate-200 hover:text-violet-400 transition cursor-pointer"
+                className="text-zinc-200 hover:text-volt transition cursor-pointer"
                 title={localMuteStream ? 'Ativar som da transmissão' : 'Silenciar transmissão'}
               >
                 {localMuteStream || streamVolume === 0 ? (
                   <VolumeX className="w-4 h-4 text-rose-400" />
                 ) : (
-                  <Volume2 className="w-4 h-4 text-violet-400" />
+                  <Volume2 className="w-4 h-4 text-volt" />
                 )}
               </button>
               <input
@@ -1057,11 +1064,11 @@ const ScreenShareCard: React.FC<{
                   setLocalMuteStream(false);
                   setStreamVolume(Number(e.target.value));
                 }}
-                className="w-20 accent-violet-500 cursor-pointer h-1.5"
+                className="w-20 accent-volt cursor-pointer h-1.5"
               />
             </div>
           )}
-          <span className="text-[11px] text-slate-300/80 hidden sm:inline">
+          <span className="text-[11px] text-zinc-300/80 hidden sm:inline">
             Clique duplo no vídeo para Tela Cheia
           </span>
         </div>
@@ -1071,7 +1078,7 @@ const ScreenShareCard: React.FC<{
             <button
               type="button"
               onClick={onToggleFocus}
-              className="px-3 py-2 bg-black/75 hover:bg-violet-600 text-white rounded-xl backdrop-blur-md border border-white/15 transition flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+              className="px-3 py-2 bg-black/75 hover:bg-volt hover:text-ink-950 text-white rounded-xl backdrop-blur-md border border-white/15 transition flex items-center gap-1.5 text-xs font-bold cursor-pointer"
               title={isFocused ? 'Restaurar Grade' : 'Destacar no App'}
             >
               {isFocused ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -1082,7 +1089,7 @@ const ScreenShareCard: React.FC<{
           <button
             type="button"
             onClick={handleToggleNativeFullscreen}
-            className="px-3.5 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-xl shadow-lg shadow-violet-600/30 transition flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+            className="px-3.5 py-2 bg-volt text-ink-950 rounded-xl shadow-lg transition flex items-center gap-1.5 text-xs font-bold cursor-pointer"
             title={isNativeFullscreen ? 'Sair da Tela Cheia (ESC)' : 'Ver em Tela Cheia'}
           >
             <Fullscreen className="w-4 h-4" />

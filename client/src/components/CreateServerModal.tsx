@@ -116,30 +116,30 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#120b22] border border-violet-500/30 rounded-3xl p-6 shadow-2xl shadow-violet-950/60 relative space-y-5"
+        className="w-full max-w-md bg-ink-800 border border-white/[0.07] rounded-2xl p-6 shadow-2xl relative space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-violet-500/15 pb-3.5">
+        <div className="flex items-center justify-between border-b border-white/[0.07] pb-3.5">
           <div>
-            <h3 className="font-black text-lg text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-violet-400" />
+            <h3 className="font-bold text-lg text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-volt" />
               <span>Novo Espaço / Servidor</span>
             </h3>
-            <p className="text-xs text-violet-300/60 mt-0.5">
+            <p className="text-xs text-zinc-500 mt-0.5">
               Crie sua comunidade personalizada ou entre com um convite.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-violet-500/15 transition cursor-pointer"
+            className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/[0.05] transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab switch */}
-        <div className="flex items-center bg-[#0a0612] p-1 rounded-2xl border border-violet-500/20">
+        <div className="flex items-center bg-ink-900 p-1 rounded-xl border border-white/[0.07]">
           <button
             type="button"
             onClick={() => {
@@ -148,8 +148,8 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               tab === 'create'
-                ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-600/25'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-volt text-ink-950 shadow-lg'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
             Criar Servidor
@@ -162,8 +162,8 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
             }}
             className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               tab === 'join'
-                ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-600/25'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-volt text-ink-950 shadow-lg'
+                : 'text-zinc-400 hover:text-white'
             }`}
           >
             Entrar com Convite
@@ -171,7 +171,7 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-400 text-xs flex items-center gap-2">
+          <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
@@ -181,17 +181,17 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
           {tab === 'create' ? (
             <>
               {/* Server Photo / Icon Upload */}
-              <div className="flex items-center gap-4 bg-[#0b0714] p-3.5 rounded-2xl border border-violet-500/15">
+              <div className="flex items-center gap-4 bg-ink-900 p-3.5 rounded-xl border border-white/[0.07]">
                 <div className="relative group shrink-0">
                   {iconUrl ? (
                     <img
                       src={iconUrl}
                       alt="Ícone"
-                      className="w-16 h-16 rounded-2xl object-cover shadow-xl border-2 border-violet-500/40"
+                      className="w-16 h-16 rounded-xl object-cover shadow-xl border-2 border-white/[0.07]"
                     />
                   ) : (
                     <div
-                      className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-black text-white shadow-xl transition-all"
+                      className="w-16 h-16 rounded-xl flex items-center justify-center text-xl font-bold text-white shadow-xl transition-all"
                       style={{ backgroundColor: selectedColor }}
                     >
                       {getInitials(serverName)}
@@ -201,7 +201,7 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-[10px] font-bold transition cursor-pointer"
+                    className="absolute inset-0 rounded-xl bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white text-[10px] font-bold transition cursor-pointer"
                   >
                     <Camera className="w-4 h-4 mb-0.5" />
                     <span>Foto</span>
@@ -217,15 +217,15 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
                 />
 
                 <div className="space-y-1.5 flex-1">
-                  <div className="text-xs font-bold text-slate-200">Foto do Servidor</div>
-                  <p className="text-[11px] text-violet-300/60">
+                  <div className="text-xs font-bold text-zinc-200">Foto do Servidor</div>
+                  <p className="text-[11px] text-zinc-500">
                     Envie uma imagem ou escolha uma cor de destaque abaixo.
                   </p>
                   <div className="flex items-center gap-2 pt-0.5">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-3 py-1 bg-violet-600/20 hover:bg-violet-600 text-violet-300 hover:text-white rounded-xl text-[11px] font-bold border border-violet-500/30 transition cursor-pointer"
+                      className="px-3 py-1 bg-white/[0.08] hover:bg-volt hover:text-ink-950 text-zinc-400 hover:text-white rounded-xl text-[11px] font-bold border border-white/[0.07] transition cursor-pointer"
                     >
                       Escolher Foto
                     </button>
@@ -245,7 +245,7 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
 
               {/* Name Input */}
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-violet-300/80">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
                   Nome do Servidor
                 </label>
                 <input
@@ -255,13 +255,13 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
                   onChange={(e) => setServerName(e.target.value)}
                   placeholder="Ex: Squad dos Crias, Servidor do Erick..."
                   maxLength={30}
-                  className="w-full bg-[#0a0612] border border-violet-500/25 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-violet-400 transition select-text"
+                  className="w-full bg-ink-900 border border-white/[0.07] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-500 outline-none focus:border-volt/40 transition select-text"
                 />
               </div>
 
               {/* Description Input */}
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-violet-300/80">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
                   Descrição / Tema (Opcional)
                 </label>
                 <input
@@ -270,16 +270,16 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Ex: Jogos competitivos, cinema e música à noite"
                   maxLength={80}
-                  className="w-full bg-[#0a0612] border border-violet-500/25 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-violet-400 transition select-text"
+                  className="w-full bg-ink-900 border border-white/[0.07] rounded-xl px-3.5 py-2 text-xs text-white placeholder-zinc-500 outline-none focus:border-volt/40 transition select-text"
                 />
               </div>
 
               {/* Color Picker */}
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-violet-300/80">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
                   Cor de Destaque
                 </label>
-                <div className="flex items-center justify-between gap-2 bg-[#0a0612] p-2 rounded-2xl border border-violet-500/15">
+                <div className="flex items-center justify-between gap-2 bg-ink-900 p-2 rounded-xl border border-white/[0.07]">
                   {SERVER_COLORS.map((color) => {
                     const isSelected = selectedColor === color;
                     return (
@@ -300,12 +300,12 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
               </div>
 
               {/* Privacy Notice */}
-              <div className="bg-[#0b0714] p-3 rounded-2xl border border-violet-500/15 text-[11px] text-slate-300 space-y-1">
-                <div className="font-bold text-violet-200 flex items-center gap-1.5 text-xs">
+              <div className="bg-ink-900 p-3 rounded-xl border border-white/[0.07] text-[11px] text-zinc-300 space-y-1">
+                <div className="font-bold text-zinc-200 flex items-center gap-1.5 text-xs">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                   Espaço Privado & Seguro:
                 </div>
-                <p className="text-violet-300/60">
+                <p className="text-zinc-500">
                   Apenas amigos convidados por você ou que possuam o código de convite poderão entrar.
                 </p>
               </div>
@@ -313,8 +313,8 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
           ) : (
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-violet-300/80 flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-violet-400" />
+                <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-volt" />
                   Código de Convite
                 </label>
                 <input
@@ -323,11 +323,11 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                   placeholder="Ex: JJ-A9B2"
-                  className="w-full bg-[#0a0612] border border-violet-500/25 rounded-2xl px-3.5 py-3 text-sm text-white placeholder-slate-500 outline-none focus:border-violet-400 transition font-mono tracking-widest text-center select-text"
+                  className="w-full bg-ink-900 border border-white/[0.07] rounded-xl px-3.5 py-3 text-sm text-white placeholder-zinc-500 outline-none focus:border-volt/40 transition font-mono tracking-widest text-center select-text"
                 />
               </div>
 
-              <div className="bg-[#0b0714] p-3.5 rounded-2xl border border-violet-500/15 text-xs text-violet-300/70">
+              <div className="bg-ink-900 p-3.5 rounded-xl border border-white/[0.07] text-xs text-zinc-500">
                 Peça o código de convite para o dono do servidor para entrar instantaneamente.
               </div>
             </div>
@@ -338,14 +338,14 @@ export const CreateServerModal: React.FC<CreateServerModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading || (tab === 'create' ? !serverName.trim() : !inviteCode.trim())}
-              className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 disabled:opacity-40 transition shadow-lg shadow-violet-600/30 cursor-pointer"
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-volt text-ink-950 disabled:opacity-40 transition shadow-lg cursor-pointer"
             >
               {loading ? 'Processando...' : tab === 'create' ? 'Criar Servidor' : 'Entrar no Servidor'}
             </button>

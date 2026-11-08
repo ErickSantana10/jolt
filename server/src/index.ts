@@ -349,6 +349,67 @@ app.get('/api/version', (_req, res) => {
   });
 });
 
+// ===== TURN (relay para quem não consegue conexão direta: CGNAT, 4G, roteador restrito) =====
+// Configure UMA das opções nas variáveis de ambiente do Render:
+//  - METERED_TURN_URL: URL de credenciais da Metered (https://<app>.metered.live/api/v1/turn/credentials?apiKey=...)
+//  - CLOUDFLARE_TURN_KEY_ID + CLOUDFLARE_TURN_API_TOKEN: chave TURN da Cloudflare Realtime
+//  - TURN_URLS (separadas por vírgula) + TURN_USERNAME + TURN_CREDENTIAL: servidor TURN próprio (coturn)
+const DEFAULT_STUN: any[] = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+];
+let turnCache: { servers: any[]; expiresAt: number } | null = null;
+
+async function getIceServers(): Promise<any[]> {
+  if (turnCache && turnCache.expiresAt > Date.now()) return turnCache.servers;
+  let turn: any[] = [];
+  let ttlMs = 6 * 60 * 60 * 1000;
+  try {
+    if (process.env.METERED_TURN_URL) {
+      const r = await fetch(process.env.METERED_TURN_URL);
+      if (r.ok) turn = await r.json();
+    } else if (process.env.CLOUDFLARE_TURN_KEY_ID && process.env.CLOUDFLARE_TURN_API_TOKEN) {
+      const r = await fetch(
+        `https://rtc.live.cloudflare.com/v1/turn/keys/${process.env.CLOUDFLARE_TURN_KEY_ID}/credentials/generate-ice-servers`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.CLOUDFLARE_TURN_API_TOKEN}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ ttl: 86400 }),
+        }
+      );
+      if (r.ok) {
+        const data: any = await r.json();
+        turn = data.iceServers || [];
+        ttlMs = 12 * 60 * 60 * 1000;
+      }
+    } else if (process.env.TURN_URLS && process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
+      turn = [
+        {
+          urls: process.env.TURN_URLS.split(',').map((u) => u.trim()).filter(Boolean),
+          username: process.env.TURN_USERNAME,
+          credential: process.env.TURN_CREDENTIAL,
+        },
+      ];
+    }
+  } catch (err: any) {
+    console.error('[TURN] Falha ao obter credenciais:', err.message);
+  }
+  if (!Array.isArray(turn)) turn = [turn];
+  const servers = [...DEFAULT_STUN, ...turn];
+  // Sem TURN configurado, guarda por pouco tempo para tentar de novo
+  turnCache = { servers, expiresAt: Date.now() + (turn.length ? ttlMs : 5 * 60 * 1000) };
+  return servers;
+}
+
+app.get('/api/turn', async (_req, res) => {
+  const servers = await getIceServers();
+  res.set('Cache-Control', 'no-store');
+  res.json({ iceServers: servers, hasTurn: servers.length > DEFAULT_STUN.length });
+});
+
 app.get('/api/health', (req, res) => {
   const db = loadDB();
   res.json({
@@ -1410,6 +1471,14 @@ io.on('connection', (socket: Socket) => {
     const target = payload.targetSocketId || payload.toPeerId;
     if (target) {
       io.to(target).emit('webrtc:answer', { fromPeerId: socket.id, fromSocketId: socket.id, answer: payload.answer });
+    }
+  });
+
+  // Pedido de refazer a conexão do zero com um colega (auto-recuperação / botão "recarregar")
+  socket.on('webrtc:reset', (payload: { targetSocketId?: string }) => {
+    const target = payload?.targetSocketId;
+    if (typeof target === 'string' && target) {
+      io.to(target).emit('webrtc:reset', { fromSocketId: socket.id });
     }
   });
 

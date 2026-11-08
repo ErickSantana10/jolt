@@ -55,26 +55,23 @@ export class WebRTCManager {
   public onRemoteScreenRemoved?: (peerId: string) => void;
   public onPeerDisconnected?: (peerId: string) => void;
   public onScreenShareEnded?: () => void;
+  // Estado da conexão com cada pessoa (para a UI mostrar "sem conexão" / "conectando")
+  public onPeerConnectionState?: (peerId: string, state: RTCPeerConnectionState) => void;
 
+  // STUN públicos (resolvem redes simples). O TURN — necessário quando a rede de alguém bloqueia
+  // conexão direta (CGNAT, 4G, roteador restrito) — vem do servidor via /api/turn (setIceServers).
+  // O antigo TURN gratuito openrelay.metered.ca parou de funcionar e foi removido.
   private rtcConfig: RTCConfiguration = {
     iceServers: [
-      { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' },
-      { urls: 'stun:stun2.l.google.com:19302' },
-      { urls: 'stun:stun3.l.google.com:19302' },
+      { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
       { urls: 'stun:stun.cloudflare.com:3478' },
-      {
-        urls: [
-          'turn:openrelay.metered.ca:80',
-          'turn:openrelay.metered.ca:443',
-          'turn:openrelay.metered.ca:443?transport=tcp',
-        ],
-        username: 'openrelayproject',
-        credential: 'openrelayproject',
-      },
     ],
-    iceCandidatePoolSize: 10,
+    iceCandidatePoolSize: 4,
   };
+
+  // Auto-recuperação: quem deveria estar conectado / transmitindo, e quando tentamos reparar
+  private expectedPeers: Map<string, { sharing: boolean; since: number; sharingSince: number }> = new Map();
+  private lastHealAt: Map<string, number> = new Map();
 
   constructor(socket: Socket, initialAudioSettings?: AudioSettings) {
     this.socket = socket;
@@ -83,6 +80,84 @@ export class WebRTCManager {
     }
     this.setupSignaling();
     this.startRemoteSpeakingMonitor();
+    window.setInterval(() => this.healConnections(), 4000);
+  }
+
+  /** Recebe a lista de ICE servers (STUN + TURN) do servidor. Vale para as próximas conexões. */
+  public setIceServers(servers: RTCIceServer[]) {
+    if (!Array.isArray(servers) || servers.length === 0) return;
+    this.rtcConfig = { ...this.rtcConfig, iceServers: servers };
+  }
+
+  /**
+   * Informa quem está na sala (socketIds) e quem está transmitindo. Usado pela auto-recuperação:
+   * se a conexão com alguém falhar, ou a tela de quem transmite não chegar, o par é refeito sozinho.
+   */
+  public setExpectedPeers(peers: { socketId: string; isScreenSharing: boolean }[]) {
+    const now = Date.now();
+    const next = new Map<string, { sharing: boolean; since: number; sharingSince: number }>();
+    for (const p of peers) {
+      if (!p.socketId || p.socketId === this.socket.id) continue;
+      const prev = this.expectedPeers.get(p.socketId);
+      next.set(p.socketId, {
+        sharing: p.isScreenSharing,
+        since: prev?.since ?? now,
+        sharingSince: p.isScreenSharing ? (prev?.sharing ? prev.sharingSince : now) : 0,
+      });
+    }
+    this.expectedPeers = next;
+  }
+
+  /** Alguma track local ainda não está sendo enviada nesta conexão (falta negociar)? */
+  private hasUnnegotiatedTracks(pc: RTCPeerConnection): boolean {
+    return pc.getTransceivers().some(
+      (t) =>
+        !!t.sender.track &&
+        t.direction !== 'stopped' &&
+        (t.currentDirection === null || t.currentDirection === 'recvonly' || t.currentDirection === 'inactive')
+    );
+  }
+
+  private hasLiveScreenFrom(peerId: string): boolean {
+    const stream = this.peerScreenStreams.get(peerId);
+    return !!stream && stream.getVideoTracks().some((t) => t.readyState === 'live');
+  }
+
+  private healConnections() {
+    const now = Date.now();
+    for (const [peerId, info] of this.expectedPeers.entries()) {
+      const last = this.lastHealAt.get(peerId) || 0;
+      if (now - last < 25000) continue;
+      const pc = this.peerConnections.get(peerId);
+      const state = pc?.connectionState;
+
+      // 1) Sem conexão (nunca conectou, caiu, ou falhou) por mais de 12s
+      const brokenConnection =
+        now - info.since > 12000 && (!pc || state === 'failed' || state === 'closed' || state === 'new');
+      // 2) Conectado, a pessoa diz que está transmitindo, mas a tela não chegou em 10s
+      const missingScreen =
+        info.sharing && now - info.sharingSince > 10000 && state === 'connected' && !this.hasLiveScreenFrom(peerId);
+
+      if (brokenConnection || missingScreen) {
+        console.warn(`[WebRTC] Reparando conexão com ${peerId} (${brokenConnection ? 'sem conexão' : 'tela não chegou'})`);
+        this.resetPeer(peerId);
+      }
+    }
+  }
+
+  /**
+   * Refaz do zero a conexão com uma pessoa (dos dois lados): avisa o colega via 'webrtc:reset',
+   * fecha a conexão antiga e manda uma oferta nova. Resolve pares travados em negociação.
+   */
+  public resetPeer(peerId: string) {
+    if (!peerId || peerId === this.socket.id) return;
+    this.lastHealAt.set(peerId, Date.now());
+    this.socket.emit('webrtc:reset', { targetSocketId: peerId });
+    this.closePeerConnection(peerId);
+    this.onPeerDisconnected?.(peerId);
+    window.setTimeout(() => {
+      this.connectToPeer(peerId);
+    }, 600);
   }
 
   private getAudioContext(): AudioContext {
@@ -108,14 +183,27 @@ export class WebRTCManager {
     }
   }
 
+  // Fila de sinalização por colega: offer/answer/candidatos de uma mesma pessoa são processados
+  // um de cada vez, na ordem de chegada. Antes os handlers async rodavam em paralelo e, com duas
+  // ofertas seguidas, uma atropelava a outra ("setLocalDescription em estado errado") e a tela
+  // de quem transmitia não chegava para quem entrou depois.
+  private signalChains: Map<string, Promise<void>> = new Map();
+
+  private enqueueSignal(peerId: string, task: () => Promise<void>) {
+    const prev = this.signalChains.get(peerId) || Promise.resolve();
+    const next = prev.then(task, task).catch(() => {});
+    this.signalChains.set(peerId, next);
+  }
+
   private setupSignaling() {
     this.socket.on(
       'webrtc:offer',
-      async (payload: { fromSocketId?: string; fromPeerId?: string; offer: RTCSessionDescriptionInit }) => {
+      (payload: { fromSocketId?: string; fromPeerId?: string; offer: RTCSessionDescriptionInit }) => {
         const fromId = payload.fromSocketId || payload.fromPeerId;
         const offer = payload.offer;
         if (!fromId || !offer) return;
 
+        this.enqueueSignal(fromId, async () => {
         try {
           const pc = this.getOrCreatePeerConnection(fromId);
           const isPolite = (this.socket.id || '') < fromId;
@@ -151,18 +239,20 @@ export class WebRTCManager {
           // o onnegotiationneeded dispara sozinho ao voltar para 'stable' e envia a tela.
           // (O antigo setTimeout de 250ms aqui criava um loop infinito de ofertas quando 2 pessoas transmitiam.)
         } catch (err) {
-          console.warn('[WebRTC] Erro ao processar offer:', err);
+          console.warn(`[WebRTC] Erro ao processar offer de ${fromId}: ${(err as Error)?.name} ${(err as Error)?.message}`);
         }
+        });
       }
     );
 
     this.socket.on(
       'webrtc:answer',
-      async (payload: { fromSocketId?: string; fromPeerId?: string; answer: RTCSessionDescriptionInit }) => {
+      (payload: { fromSocketId?: string; fromPeerId?: string; answer: RTCSessionDescriptionInit }) => {
         const fromId = payload.fromSocketId || payload.fromPeerId;
         const answer = payload.answer;
         if (!fromId || !answer) return;
 
+        this.enqueueSignal(fromId, async () => {
         try {
           const pc = this.peerConnections.get(fromId);
           if (pc && pc.signalingState === 'have-local-offer') {
@@ -170,18 +260,20 @@ export class WebRTCManager {
             await this.flushPendingCandidates(fromId, pc);
           }
         } catch (err) {
-          console.warn('[WebRTC] Erro ao processar answer:', err);
+          console.warn(`[WebRTC] Erro ao processar answer de ${fromId}: ${(err as Error)?.name} ${(err as Error)?.message}`);
         }
+        });
       }
     );
 
     this.socket.on(
       'webrtc:ice-candidate',
-      async (payload: { fromSocketId?: string; fromPeerId?: string; candidate: RTCIceCandidateInit }) => {
+      (payload: { fromSocketId?: string; fromPeerId?: string; candidate: RTCIceCandidateInit }) => {
         const fromId = payload.fromSocketId || payload.fromPeerId;
         const candidate = payload.candidate;
         if (!fromId || !candidate) return;
 
+        this.enqueueSignal(fromId, async () => {
         // Nunca descarta candidatos só porque uma oferta foi ignorada: o flag ignoreOffer
         // continuava true depois da colisão e todos os candidatos seguintes eram jogados fora,
         // deixando espectadores sem conexão (tela preta) em alguns pares.
@@ -197,8 +289,18 @@ export class WebRTCManager {
           list.push(candidate);
           this.pendingCandidates.set(fromId, list);
         }
+        });
       }
     );
+
+    // O colega pediu para refazer a conexão: descarta a nossa e aguarda a oferta nova dele
+    this.socket.on('webrtc:reset', (payload: { fromSocketId?: string }) => {
+      const fromId = payload?.fromSocketId;
+      if (!fromId) return;
+      this.lastHealAt.set(fromId, Date.now());
+      this.closePeerConnection(fromId);
+      this.onPeerDisconnected?.(fromId);
+    });
 
     this.socket.on('voice:peer-left', (payload: { socketId?: string; peerId?: string }) => {
       const leftId = payload.socketId || payload.peerId;
@@ -211,7 +313,14 @@ export class WebRTCManager {
   public async connectToPeer(targetSocketId: string) {
     if (!targetSocketId || targetSocketId === this.socket.id) return;
     const pc = this.getOrCreatePeerConnection(targetSocketId);
-    await this.renegotiate(targetSocketId, pc);
+    // Sem microfone nem tela, a oferta sairia sem nenhuma mídia e o ICE nem começaria:
+    // pede só para receber, assim quem não tem microfone ainda vê e ouve os outros.
+    if (pc.getTransceivers().length === 0) {
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+      pc.addTransceiver('video', { direction: 'recvonly' });
+    }
+    // A oferta sai pelo onnegotiationneeded (disparado ao adicionar tracks/transceivers).
+    // Chamar renegotiate aqui também gerava ofertas duplicadas, que colidiam com a do colega.
   }
 
   /**
@@ -323,9 +432,12 @@ export class WebRTCManager {
 
     // Se uma oferta foi pedida enquanto outra negociação estava em andamento, envia assim que estabilizar
     pc.onsignalingstatechange = () => {
-      if (pc.signalingState === 'stable' && this.pendingRenegotiation.has(peerId)) {
-        this.pendingRenegotiation.delete(peerId);
-        this.renegotiate(peerId, pc);
+      if (pc.signalingState !== 'stable') return;
+      // Reenvia se havia pedido pendente OU se alguma track nossa (ex.: a tela) ainda não foi negociada.
+      // O segundo caso cobre quem entra na sala com a live já rolando: o navegador nem sempre dispara
+      // onnegotiationneeded de novo depois de responder a oferta do recém-chegado.
+      if (this.pendingRenegotiation.delete(peerId) || this.hasUnnegotiatedTracks(pc)) {
+        window.setTimeout(() => this.renegotiate(peerId, pc), 0);
       }
     };
 
@@ -430,6 +542,9 @@ export class WebRTCManager {
 
     pc.onconnectionstatechange = () => {
       const state = pc.connectionState;
+      if (this.peerConnections.get(peerId) === pc) {
+        this.onPeerConnectionState?.(peerId, state);
+      }
       if (state === 'connected') {
         const timer = this.iceFailureTimers.get(peerId);
         if (timer) {
@@ -497,7 +612,7 @@ export class WebRTCManager {
 
     this.setupMicProcessingPipeline(this.rawMicStream);
 
-    for (const [peerId, pc] of this.peerConnections.entries()) {
+    for (const pc of this.peerConnections.values()) {
       const audioTrack = this.localStream?.getAudioTracks()[0];
       if (audioTrack && this.localStream) {
         const screenAudioTracks = this.screenStream ? this.screenStream.getAudioTracks() : [];
@@ -507,8 +622,8 @@ export class WebRTCManager {
         if (existingAudioSender) {
           await existingAudioSender.replaceTrack(audioTrack);
         } else {
+          // onnegotiationneeded envia a oferta com o microfone novo
           pc.addTrack(audioTrack, this.localStream);
-          await this.renegotiate(peerId, pc);
         }
       }
     }
@@ -1025,14 +1140,14 @@ export class WebRTCManager {
       ...this.screenStream.getAudioTracks(),
     ];
 
-    for (const [peerId, pc] of this.peerConnections.entries()) {
+    // addTrack dispara onnegotiationneeded, que envia uma única oferta por peer
+    for (const pc of this.peerConnections.values()) {
       for (const track of orderedTracks) {
         const sender = pc.addTrack(track, this.screenStream);
         if (track.kind === 'video') {
           await this.applyBitrateLimit(sender, preset.bitrateKbps, preset.fps);
         }
       }
-      await this.renegotiate(peerId, pc);
     }
 
     return this.screenStream;
@@ -1102,7 +1217,8 @@ export class WebRTCManager {
       track.stop();
     });
 
-    for (const [peerId, pc] of this.peerConnections.entries()) {
+    // removeTrack dispara onnegotiationneeded, que avisa o colega que a tela saiu
+    for (const pc of this.peerConnections.values()) {
       const senders = pc.getSenders();
       senders.forEach((sender) => {
         if (sender.track && (screenTracks.has(sender.track) || sender.track.kind === 'video')) {
@@ -1111,7 +1227,6 @@ export class WebRTCManager {
           } catch {}
         }
       });
-      this.renegotiate(peerId, pc);
     }
 
     this.screenStream = null;
@@ -1157,7 +1272,20 @@ export class WebRTCManager {
         offer: conn.localDescription || offer,
       });
     } catch (e) {
-      console.error('Erro na renegociação WebRTC:', e);
+      // Colisão: a oferta do colega chegou entre o createOffer e o setLocalDescription.
+      // ANTES a oferta era perdida — e com ela as tracks da tela —, e o navegador não dispara
+      // onnegotiationneeded de novo, então aquele par ficava sem ver a transmissão para sempre.
+      // Agora ela volta para a fila e é reenviada assim que a conexão estabilizar.
+      if ((e as Error)?.name === 'InvalidStateError' && (conn.signalingState as RTCSignalingState) !== 'closed') {
+        this.pendingRenegotiation.add(peerId);
+        if (conn.signalingState === 'stable') {
+          window.setTimeout(() => {
+            if (this.pendingRenegotiation.delete(peerId)) this.renegotiate(peerId, conn);
+          }, 150);
+        }
+      } else {
+        console.error(`[WebRTC] Erro na renegociação com ${peerId}: ${(e as Error)?.name} ${(e as Error)?.message}`);
+      }
     } finally {
       this.makingOffer.set(peerId, false);
     }
@@ -1183,6 +1311,7 @@ export class WebRTCManager {
     this.ignoreOffer.delete(peerId);
     this.pendingCandidates.delete(peerId);
     this.pendingRenegotiation.delete(peerId);
+    this.signalChains.delete(peerId);
     const timer = this.iceFailureTimers.get(peerId);
     if (timer) {
       clearTimeout(timer);
@@ -1191,6 +1320,8 @@ export class WebRTCManager {
   }
 
   public leaveAll() {
+    this.expectedPeers.clear();
+    this.lastHealAt.clear();
     this.stopDiscordFreeAudioTrack();
 
     if (this.speakingInterval) {

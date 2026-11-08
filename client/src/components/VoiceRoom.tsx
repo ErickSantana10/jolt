@@ -13,6 +13,10 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
+  EyeOff,
+  Eye,
+  RefreshCw,
+  Loader2,
   MessageSquare,
   Send,
   Paperclip,
@@ -66,6 +70,8 @@ interface VoiceRoomProps {
   onLeaveVoice: () => void;
   onChangeQuality: (preset: StreamQualityPreset) => void;
   onOpenSettings?: () => void;
+  peerStates?: Record<string, RTCPeerConnectionState>;
+  onReloadPeer?: (peerId: string) => void;
 }
 
 export const VoiceRoom: React.FC<VoiceRoomProps> = ({
@@ -92,6 +98,8 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
   onLeaveVoice,
   onChangeQuality,
   onOpenSettings,
+  peerStates = {},
+  onReloadPeer,
 }) => {
   const [focusedStream, setFocusedStream] = useState<'local' | string | null>(null);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -101,11 +109,41 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const screenShares = remoteStreams.filter((s) => s.isScreen);
+  // Transmissões que o espectador escolheu parar de assistir (por socketId de quem transmite)
+  const [hiddenStreams, setHiddenStreams] = useState<Set<string>>(() => new Set());
+  const stopWatching = (peerId: string) =>
+    setHiddenStreams((prev) => new Set(prev).add(peerId));
+  const startWatching = (peerId: string) =>
+    setHiddenStreams((prev) => {
+      const next = new Set(prev);
+      next.delete(peerId);
+      return next;
+    });
+
+  const allRemoteShares = remoteStreams.filter((s) => s.isScreen);
+  const screenShares = allRemoteShares.filter((s) => !hiddenStreams.has(s.peerId));
   const audioStreams = remoteStreams.filter((s) => !s.isScreen);
 
-  const hasAnyScreenShare = (isScreenSharing && !!localScreenStream) || screenShares.length > 0;
-  const totalScreensCount = (isScreenSharing && localScreenStream ? 1 : 0) + screenShares.length;
+  // Quem diz estar transmitindo mas não tem player na tela: parou de assistir ou ainda está conectando
+  const sharePlaceholders = usersInRoom
+    .filter(
+      (u, i, arr) =>
+        u.isScreenSharing &&
+        u.id !== currentUser?.id &&
+        u.socketId &&
+        arr.findIndex((x) => x.id === u.id) === i &&
+        !screenShares.some((s) => s.peerId === u.socketId)
+    )
+    .map((u) => ({
+      user: u,
+      hidden: hiddenStreams.has(u.socketId),
+      connection: peerStates[u.socketId],
+    }));
+
+  const hasAnyScreenShare =
+    (isScreenSharing && !!localScreenStream) || screenShares.length > 0 || sharePlaceholders.length > 0;
+  const totalScreensCount =
+    (isScreenSharing && localScreenStream ? 1 : 0) + screenShares.length + sharePlaceholders.length;
 
   // Ordenação determinística para que os participantes NUNCA saiam de ordem ou pulem de lugar
   const sortedUsersInRoom = useMemo(() => {
@@ -349,6 +387,12 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                           onToggleFocus={() => setFocusedStream(null)}
                           outputVolume={audioSettings.outputVolume}
                           sinkId={audioSettings.outputDeviceId}
+                          volumeKey={peerUser?.id}
+                          onStopWatching={() => {
+                            setFocusedStream(null);
+                            stopWatching(share.peerId);
+                          }}
+                          onReload={onReloadPeer ? () => onReloadPeer(share.peerId) : undefined}
                         />
                       </div>
                     );
@@ -418,10 +462,26 @@ export const VoiceRoom: React.FC<VoiceRoomProps> = ({
                           onToggleFocus={() => setFocusedStream(share.peerId)}
                           outputVolume={audioSettings.outputVolume}
                           sinkId={audioSettings.outputDeviceId}
+                          volumeKey={peerUser?.id}
+                          onStopWatching={() => stopWatching(share.peerId)}
+                          onReload={onReloadPeer ? () => onReloadPeer(share.peerId) : undefined}
                         />
                       </div>
                     );
                   })}
+
+                  {sharePlaceholders.map(({ user, hidden, connection }) => (
+                    <StreamPlaceholder
+                      key={`${user.id}-placeholder`}
+                      name={user.name || user.displayName}
+                      avatarUrl={user.avatarUrl}
+                      avatarColor={user.avatarColor}
+                      hidden={hidden}
+                      connection={connection}
+                      onWatch={() => startWatching(user.socketId)}
+                      onReload={onReloadPeer ? () => onReloadPeer(user.socketId) : undefined}
+                    />
+                  ))}
                 </div>
 
                 {/* Faixa simétrica e ordenada de participantes abaixo da transmissão */}
@@ -850,6 +910,9 @@ const ScreenShareCard: React.FC<{
   onToggleFocus: () => void;
   outputVolume: number;
   sinkId?: string;
+  volumeKey?: string;
+  onStopWatching?: () => void;
+  onReload?: () => void;
 }> = ({
   stream,
   updatedAt,
@@ -860,12 +923,31 @@ const ScreenShareCard: React.FC<{
   onToggleFocus,
   outputVolume,
   sinkId,
+  volumeKey,
+  onStopWatching,
+  onReload,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const lastAudioTrackIdsRef = useRef<string>('');
   const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
-  const [streamVolume, setStreamVolume] = useState(100);
+  const volumeStorageKey = volumeKey ? `jolt_stream_volume_${volumeKey}` : null;
+  const [streamVolume, setStreamVolumeState] = useState<number>(() => {
+    try {
+      const saved = volumeStorageKey ? Number(localStorage.getItem(volumeStorageKey)) : NaN;
+      return Number.isFinite(saved) && saved >= 0 && saved <= 100 && localStorage.getItem(volumeStorageKey!) !== null
+        ? saved
+        : 100;
+    } catch {
+      return 100;
+    }
+  });
+  const setStreamVolume = (v: number) => {
+    setStreamVolumeState(v);
+    try {
+      if (volumeStorageKey) localStorage.setItem(volumeStorageKey, String(v));
+    } catch {}
+  };
   const [localMuteStream, setLocalMuteStream] = useState(false);
   const [needsUserAudioUnlock, setNeedsUserAudioUnlock] = useState(false);
 
@@ -1035,39 +1117,69 @@ const ScreenShareCard: React.FC<{
         )}
       </div>
 
+      {/* Controles do espectador (sempre visíveis): volume da transmissão, recarregar e parar de assistir */}
+      {!isLocal && (
+        <div
+          className="absolute top-3 right-3 z-20 flex items-center gap-1 bg-black/70 backdrop-blur-md p-1 rounded-xl border border-white/10"
+          onDoubleClick={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-2 pl-2 pr-1" title="Volume desta transmissão">
+            <button
+              type="button"
+              onClick={() => setLocalMuteStream(!localMuteStream)}
+              className="text-zinc-200 hover:text-white transition cursor-pointer"
+              title={localMuteStream ? 'Ativar som da transmissão' : 'Silenciar transmissão'}
+            >
+              {localMuteStream || streamVolume === 0 ? (
+                <VolumeX className="w-4 h-4 text-rose-400" />
+              ) : (
+                <Volume2 className="w-4 h-4" />
+              )}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={localMuteStream ? 0 : streamVolume}
+              onChange={(e) => {
+                setLocalMuteStream(false);
+                setStreamVolume(Number(e.target.value));
+              }}
+              aria-label="Volume da transmissão"
+              className="w-24 accent-volt cursor-pointer h-1.5"
+            />
+            <span className="w-8 text-right text-[11px] font-mono text-zinc-300">
+              {localMuteStream ? 0 : streamVolume}%
+            </span>
+          </div>
+          {onReload && (
+            <button
+              type="button"
+              onClick={onReload}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-300 hover:text-white hover:bg-white/10 transition cursor-pointer"
+              title="Recarregar transmissão (se travar ou ficar preta)"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          )}
+          {onStopWatching && (
+            <button
+              type="button"
+              onClick={onStopWatching}
+              className="h-8 px-2.5 rounded-lg flex items-center gap-1.5 text-[12px] font-medium text-zinc-200 hover:text-white hover:bg-rose-500/80 transition cursor-pointer"
+              title="Parar de assistir esta transmissão"
+            >
+              <EyeOff className="w-4 h-4" />
+              <span className="hidden md:inline">Sair da tela</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Barra de controles flutuante ao passar o mouse */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/45 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-150 p-4 flex items-center justify-between z-10">
         <div className="flex items-center gap-3">
-          {!isLocal && (
-            <div
-              className="flex items-center gap-2 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/15"
-              onDoubleClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => setLocalMuteStream(!localMuteStream)}
-                className="text-zinc-200 hover:text-volt transition cursor-pointer"
-                title={localMuteStream ? 'Ativar som da transmissão' : 'Silenciar transmissão'}
-              >
-                {localMuteStream || streamVolume === 0 ? (
-                  <VolumeX className="w-4 h-4 text-rose-400" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-volt" />
-                )}
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={localMuteStream ? 0 : streamVolume}
-                onChange={(e) => {
-                  setLocalMuteStream(false);
-                  setStreamVolume(Number(e.target.value));
-                }}
-                className="w-20 accent-volt cursor-pointer h-1.5"
-              />
-            </div>
-          )}
           <span className="text-[11px] text-zinc-300/80 hidden sm:inline">
             Clique duplo no vídeo para Tela Cheia
           </span>
@@ -1097,6 +1209,75 @@ const ScreenShareCard: React.FC<{
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+/**
+ * Lugar de uma transmissão sem player: quem parou de assistir vê "Assistir"; quem ainda não recebeu
+ * a tela vê "Conectando" com opção de recarregar (a auto-recuperação também tenta sozinha).
+ */
+const StreamPlaceholder: React.FC<{
+  name: string;
+  avatarUrl?: string;
+  avatarColor?: string;
+  hidden: boolean;
+  connection?: RTCPeerConnectionState;
+  onWatch: () => void;
+  onReload?: () => void;
+}> = ({ name, avatarUrl, avatarColor, hidden, connection, onWatch, onReload }) => {
+  const failed = connection === 'failed' || connection === 'disconnected';
+  return (
+    <div className="w-full aspect-video max-h-[62vh] rounded-xl border border-white/[0.07] bg-ink-850 flex flex-col items-center justify-center gap-4 p-6 text-center">
+      {avatarUrl ? (
+        <img src={avatarUrl} alt={name} className="w-14 h-14 rounded-full object-cover" />
+      ) : (
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-semibold text-white"
+          style={{ backgroundColor: avatarColor || '#3f3f46' }}
+        >
+          {(name || '?').slice(0, 1).toUpperCase()}
+        </div>
+      )}
+      <div>
+        <div className="text-[14px] font-semibold text-zinc-100 flex items-center justify-center gap-2">
+          <span className="px-1.5 rounded bg-rose-500 text-white text-[9px] font-bold leading-[15px] tracking-wide">
+            AO VIVO
+          </span>
+          {name} está transmitindo
+        </div>
+        <div className="text-[12.5px] text-zinc-500 mt-1">
+          {hidden
+            ? 'Você saiu desta transmissão.'
+            : failed
+            ? 'Não foi possível conectar com essa pessoa. Tentando de novo...'
+            : 'Conectando à transmissão...'}
+        </div>
+      </div>
+      {hidden ? (
+        <button
+          type="button"
+          onClick={onWatch}
+          className="h-9 px-4 rounded-lg bg-volt text-ink-950 text-[13px] font-semibold flex items-center gap-2 hover:brightness-110 transition cursor-pointer"
+        >
+          <Eye className="w-4 h-4" />
+          Assistir
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-4 h-4 text-zinc-500 animate-spin" />
+          {onReload && (
+            <button
+              type="button"
+              onClick={onReload}
+              className="h-8 px-3 rounded-lg bg-white/[0.06] text-zinc-200 text-[12.5px] font-medium flex items-center gap-1.5 hover:bg-white/[0.1] transition cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Recarregar
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

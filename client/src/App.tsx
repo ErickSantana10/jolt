@@ -117,6 +117,8 @@ export const App: React.FC = () => {
   const [streamQuality, setStreamQuality] = useState<StreamQualityPreset>('balanced');
   const [localScreenStream, setLocalScreenStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<RemoteStreamItem[]>([]);
+  // Estado da conexão WebRTC com cada pessoa da call (socketId -> estado)
+  const [peerStates, setPeerStates] = useState<Record<string, RTCPeerConnectionState>>({});
   const [audioSettings, setAudioSettings] = useState<AudioSettings>(() => {
     try {
       const saved = localStorage.getItem('janjacord_audio_settings');
@@ -305,6 +307,19 @@ export const App: React.FC = () => {
     const rtc = new WebRTCManager(socket, audioSettings);
     rtcManagerRef.current = rtc;
 
+    // Busca STUN/TURN no servidor (o TURN é o que conecta quem está atrás de CGNAT/4G/roteador restrito)
+    fetch(`${serverUrl}/api/turn`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.iceServers) rtc.setIceServers(data.iceServers);
+        if (data && !data.hasTurn) console.warn('[WebRTC] Servidor sem TURN configurado: algumas redes não vão conectar.');
+      })
+      .catch(() => {});
+
+    rtc.onPeerConnectionState = (peerId, state) => {
+      setPeerStates((prev) => (prev[peerId] === state ? prev : { ...prev, [peerId]: state }));
+    };
+
     rtc.onSpeakingChange = (speaking) => {
       setIsSpeaking(speaking);
     };
@@ -328,6 +343,12 @@ export const App: React.FC = () => {
 
     rtc.onPeerDisconnected = (peerId) => {
       setRemoteStreams((prev) => prev.filter((item) => item.peerId !== peerId));
+      setPeerStates((prev) => {
+        if (!(peerId in prev)) return prev;
+        const next = { ...prev };
+        delete next[peerId];
+        return next;
+      });
     };
 
     rtc.onScreenShareEnded = () => {
@@ -767,6 +788,21 @@ export const App: React.FC = () => {
       }
     });
   };
+
+  // Mantém a auto-recuperação do WebRTC sabendo quem está na call e quem está transmitindo
+  useEffect(() => {
+    const rtc = rtcManagerRef.current;
+    if (!rtc) return;
+    if (!currentVoiceChannelId) {
+      rtc.setExpectedPeers([]);
+      return;
+    }
+    rtc.setExpectedPeers(
+      onlineUsers
+        .filter((u) => u.currentVoiceChannel === currentVoiceChannelId && u.socketId)
+        .map((u) => ({ socketId: u.socketId, isScreenSharing: !!u.isScreenSharing }))
+    );
+  }, [onlineUsers, currentVoiceChannelId]);
 
   const handleUpdateAudioSettings = (newSettings: AudioSettings) => {
     setAudioSettings(newSettings);
@@ -1500,6 +1536,8 @@ export const App: React.FC = () => {
                 onLeaveVoice={handleLeaveVoice}
                 onChangeQuality={handleChangeQuality}
                 onOpenSettings={() => setIsSettingsOpen(true)}
+                peerStates={peerStates}
+                onReloadPeer={(peerId) => rtcManagerRef.current?.resetPeer(peerId)}
               />
             </div>
           )}

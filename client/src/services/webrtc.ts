@@ -2,6 +2,7 @@ import { Socket } from 'socket.io-client';
 import {
   QUALITY_PRESETS,
   DEFAULT_AUDIO_SETTINGS,
+  type QualityConfig,
   type StreamQualityPreset,
   type AudioSettings,
 } from '../types';
@@ -224,6 +225,7 @@ export class WebRTCManager {
 
           await this.flushPendingCandidates(fromId, pc);
 
+          this.preferVideoCodecs(pc);
           const answer = await pc.createAnswer();
           if (answer.sdp) {
             answer.sdp = this.enhanceOpusSdp(answer.sdp);
@@ -418,8 +420,7 @@ export class WebRTCManager {
           const sender = pc.addTrack(track, this.screenStream!);
           // Quem entra na sala depois também recebe o bitrate/FPS do preset escolhido
           if (track.kind === 'video' && this.currentScreenPreset) {
-            const preset = QUALITY_PRESETS[this.currentScreenPreset];
-            this.applyBitrateLimit(sender, preset.bitrateKbps, preset.fps);
+            this.applyBitrateLimit(sender, QUALITY_PRESETS[this.currentScreenPreset]);
           }
         }
       });
@@ -1115,7 +1116,7 @@ export class WebRTCManager {
     const videoTrack = this.screenStream.getVideoTracks()[0];
     if (videoTrack) {
       if ('contentHint' in videoTrack) {
-        videoTrack.contentHint = 'motion';
+        videoTrack.contentHint = preset.contentHint;
       }
 
       try {
@@ -1145,7 +1146,7 @@ export class WebRTCManager {
       for (const track of orderedTracks) {
         const sender = pc.addTrack(track, this.screenStream);
         if (track.kind === 'video') {
-          await this.applyBitrateLimit(sender, preset.bitrateKbps, preset.fps);
+          await this.applyBitrateLimit(sender, preset);
         }
       }
     }
@@ -1160,6 +1161,9 @@ export class WebRTCManager {
 
     const videoTrack = this.screenStream.getVideoTracks()[0];
     if (videoTrack) {
+      if ('contentHint' in videoTrack) {
+        videoTrack.contentHint = preset.contentHint;
+      }
       try {
         await videoTrack.applyConstraints({
           width: { ideal: preset.width, max: preset.width },
@@ -1175,21 +1179,49 @@ export class WebRTCManager {
       const senders = pc.getSenders();
       for (const sender of senders) {
         if (sender.track && sender.track.kind === 'video') {
-          await this.applyBitrateLimit(sender, preset.bitrateKbps, preset.fps);
+          await this.applyBitrateLimit(sender, preset);
         }
       }
     }
   }
 
-  private async applyBitrateLimit(sender: RTCRtpSender, maxBitrateKbps: number, maxFps: number) {
+  /**
+   * Prefere H.264 (como o Discord): no Windows o Chromium usa o encoder de HARDWARE da placa de vídeo
+   * (NVENC/QuickSync/AMF), que mantém 1080p60 nítido sem pesar a CPU. O VP8 padrão codifica por software
+   * e perde nitidez/quadros em telas grandes. Os outros codecs continuam na lista como alternativa.
+   */
+  private preferVideoCodecs(pc: RTCPeerConnection) {
+    try {
+      const caps = RTCRtpReceiver.getCapabilities?.('video');
+      if (!caps || typeof RTCRtpTransceiver === 'undefined' || !('setCodecPreferences' in RTCRtpTransceiver.prototype)) {
+        return;
+      }
+      const rank = (mime: string) =>
+        mime === 'video/H264' ? 0 : mime === 'video/VP9' ? 1 : mime === 'video/VP8' ? 2 : mime === 'video/AV1' ? 3 : 4;
+      const sorted = [...caps.codecs].sort((a, b) => rank(a.mimeType) - rank(b.mimeType));
+      for (const t of pc.getTransceivers()) {
+        if (t.receiver.track?.kind === 'video' && t.direction !== 'stopped') {
+          try {
+            t.setCodecPreferences(sorted);
+          } catch {}
+        }
+      }
+    } catch {}
+  }
+
+  private async applyBitrateLimit(sender: RTCRtpSender, preset: QualityConfig) {
     try {
       const params = sender.getParameters();
       if (!params.encodings || params.encodings.length === 0) {
         params.encodings = [{}];
       }
-      params.encodings[0].maxBitrate = maxBitrateKbps * 1000;
-      params.encodings[0].maxFramerate = maxFps;
-      params.degradationPreference = 'maintain-framerate';
+      params.encodings[0].maxBitrate = preset.bitrateKbps * 1000;
+      params.encodings[0].maxFramerate = preset.fps;
+      params.encodings[0].scaleResolutionDownBy = 1;
+      // Prioriza os pacotes da tela na rede e no encoder
+      (params.encodings[0] as any).priority = 'high';
+      (params.encodings[0] as any).networkPriority = 'high';
+      params.degradationPreference = preset.degradation;
       await sender.setParameters(params);
     } catch (e) {
       console.warn('Aviso ao configurar bitrate WebRTC:', e);
@@ -1233,7 +1265,40 @@ export class WebRTCManager {
     this.rawScreenStream = null;
   }
 
+  /**
+   * Faz o encoder de vídeo começar com bitrate alto (2,5 Mbps) e não cair abaixo de 600 kbps.
+   * Sem isso o WebRTC começa em ~300 kbps e leva vários segundos subindo — a live começava borrada.
+   */
+  private enhanceVideoSdp(sdp: string): string {
+    const lines = sdp.split('\r\n');
+    const videoPts = new Set<string>();
+    for (const l of lines) {
+      const m = l.match(/^a=rtpmap:(\d+) (H264|VP8|VP9|AV1)\//i);
+      if (m) videoPts.add(m[1]);
+    }
+    if (videoPts.size === 0) return sdp;
+    const extra = 'x-google-start-bitrate=2500;x-google-min-bitrate=600';
+    const withFmtp = new Set<string>();
+    const out = lines.map((l) => {
+      const m = l.match(/^a=fmtp:(\d+) (.*)$/);
+      if (m && videoPts.has(m[1])) {
+        withFmtp.add(m[1]);
+        return m[2].includes('x-google-start-bitrate') ? l : `${l};${extra}`;
+      }
+      return l;
+    });
+    // Codecs sem linha fmtp (ex.: VP8) ganham uma logo após o rtpmap
+    const final: string[] = [];
+    for (const l of out) {
+      final.push(l);
+      const m = l.match(/^a=rtpmap:(\d+) /);
+      if (m && videoPts.has(m[1]) && !withFmtp.has(m[1])) final.push(`a=fmtp:${m[1]} ${extra}`);
+    }
+    return final.join('\r\n');
+  }
+
   private enhanceOpusSdp(sdp: string): string {
+    sdp = this.enhanceVideoSdp(sdp);
     return sdp.replace(/a=fmtp:111 (.*)/g, (_match, params) => {
       let updated = params;
       if (!updated.includes('stereo=')) updated += ';stereo=1;sprop-stereo=1';
@@ -1257,6 +1322,7 @@ export class WebRTCManager {
 
     try {
       this.makingOffer.set(peerId, true);
+      this.preferVideoCodecs(conn);
       const offer = await conn.createOffer();
       if (conn.signalingState !== 'stable') {
         this.pendingRenegotiation.add(peerId);

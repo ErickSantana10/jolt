@@ -215,7 +215,7 @@ export const ScreenShareModal: React.FC<ScreenShareModalProps> = ({
                         : 'bg-ink-800 border-white/[0.07] text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    {key === 'potato' ? '480p Leve' : key === 'balanced' ? '720p 30FPS' : '1080p 60FPS'}
+                    {key === 'potato' ? '480p Leve' : key === 'balanced' ? '1080p Nitidez' : '1080p 60 FPS'}
                   </button>
                 );
               })}

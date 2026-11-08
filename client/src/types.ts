@@ -198,35 +198,45 @@ export interface QualityConfig {
   height: number;
   fps: number;
   bitrateKbps: number;
+  /** 'motion' prioriza fluidez (jogos); 'detail' prioriza nitidez (texto, menus, filmes) */
+  contentHint: 'motion' | 'detail';
+  /** O que o encoder sacrifica quando falta banda/CPU */
+  degradation: RTCDegradationPreference;
 }
 
 export const QUALITY_PRESETS: Record<StreamQualityPreset, QualityConfig> = {
   potato: {
     name: 'potato',
     label: '🥔 Modo Batata (Ultra Leve)',
-    description: '480p @ 20 FPS (600 Kbps) - Zero travamentos em PCs fracos',
+    description: '480p @ 30 FPS (1.2 Mbps) - Para internet ou PC fracos',
     width: 854,
     height: 480,
-    fps: 20,
-    bitrateKbps: 600,
+    fps: 30,
+    bitrateKbps: 1200,
+    contentHint: 'motion',
+    degradation: 'balanced',
   },
   balanced: {
     name: 'balanced',
-    label: '⚖️ Modo Equilibrado',
-    description: '720p @ 30 FPS (1.8 Mbps) - Qualidade limpa e estável',
-    width: 1280,
-    height: 720,
+    label: '🔍 Modo Nitidez (1080p)',
+    description: '1080p @ 30 FPS (4.5 Mbps) - Texto, menus e filmes bem nítidos',
+    width: 1920,
+    height: 1080,
     fps: 30,
-    bitrateKbps: 1800,
+    bitrateKbps: 4500,
+    contentHint: 'detail',
+    degradation: 'maintain-resolution',
   },
   gamer: {
     name: 'gamer',
     label: '🚀 Modo Gamer Pro (60 FPS)',
-    description: '1080p @ 60 FPS (5.0 Mbps) - Fluidez máxima para jogos de ação',
+    description: '1080p @ 60 FPS (8 Mbps) - Fluidez máxima para jogos de ação',
     width: 1920,
     height: 1080,
     fps: 60,
-    bitrateKbps: 5000,
+    bitrateKbps: 8000,
+    contentHint: 'motion',
+    degradation: 'maintain-framerate',
   },
 };
 

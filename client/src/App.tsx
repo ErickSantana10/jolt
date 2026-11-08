@@ -76,11 +76,15 @@ const RailButton: React.FC<{
     <button
       onClick={onClick}
       title={title}
-      className={`w-11 h-11 rounded-xl overflow-hidden transition-all duration-200 cursor-pointer ${
-        active ? 'ring-1 ring-volt/60 ring-offset-2 ring-offset-ink-950' : 'opacity-70 hover:opacity-100'
+      className={`relative w-11 h-11 rounded-xl transition-all duration-200 cursor-pointer ${
+        active ? '' : 'opacity-70 hover:opacity-100'
       }`}
     >
-      {children}
+      <span className="block w-full h-full rounded-xl overflow-hidden">{children}</span>
+      {/* Anel do servidor ativo: elemento próprio, fora do recorte da foto, para fechar a volta inteira */}
+      {active && (
+        <span className="pointer-events-none absolute -inset-[4px] rounded-[15px] border-2 border-volt/80" />
+      )}
     </button>
   </div>
 );
@@ -306,6 +310,7 @@ export const App: React.FC = () => {
 
     const rtc = new WebRTCManager(socket, audioSettings);
     rtcManagerRef.current = rtc;
+    if (import.meta.env.DEV) (window as any).__joltRtc = rtc;
 
     // Busca STUN/TURN no servidor (o TURN é o que conecta quem está atrás de CGNAT/4G/roteador restrito)
     fetch(`${serverUrl}/api/turn`)
@@ -476,6 +481,11 @@ export const App: React.FC = () => {
 
     restoreSession();
     socket.on('connect', restoreSession);
+
+    // Perfis que esta conta pode ver (membros dos seus servidores + amigos), atualizado pelo servidor
+    socket.on('users:visible', (list: ServerMemberInfo[]) => {
+      if (Array.isArray(list)) setAllServerMembers(list);
+    });
 
     socket.on('online:list', (list: OnlineUser[]) => {
       setOnlineUsers(deduplicateOnlineUsers(list));
@@ -1382,13 +1392,14 @@ export const App: React.FC = () => {
 
       {/* 4. TRILHO DE NAVEGAÇÃO (design Volt): Início, servidores, criar e atualizar */}
       <nav className="w-[68px] shrink-0 flex flex-col items-center py-3 gap-2 select-none">
+        <div className="pt-1" />
         <RailButton active={isAtHome} onClick={handleSelectHome} title="Início — amigos e mensagens">
           <img src="/logo.jpg" alt="Jolt" className="w-full h-full object-cover" />
         </RailButton>
 
         <div className="w-6 h-px bg-white/[0.08] my-1 shrink-0" />
 
-        <div className="flex-1 w-full flex flex-col items-center gap-2 overflow-y-auto no-scrollbar py-0.5">
+        <div className="flex-1 w-full flex flex-col items-center gap-2.5 overflow-y-auto no-scrollbar py-1.5">
           {servers.map((server) => (
             <RailButton
               key={server.id}
@@ -1420,9 +1431,10 @@ export const App: React.FC = () => {
 
         {/* Atualizar App — só no desktop. Com versão nova: faixa verde passando + selo "novo" */}
         {isElectron && (
+          <div className="relative shrink-0">
           <button
             onClick={handleCheckAndAutoUpdate}
-            className={`relative w-11 h-11 shrink-0 rounded-xl border flex items-center justify-center transition cursor-pointer ${
+            className={`relative w-11 h-11 rounded-xl border flex items-center justify-center transition cursor-pointer ${
               hasUpdateAvailable
                 ? 'jolt-update-shimmer bg-emerald-500/10 border-emerald-400/50 text-emerald-300'
                 : 'border-white/[0.06] text-zinc-500 hover:text-zinc-100 hover:bg-white/[0.05]'
@@ -1436,12 +1448,19 @@ export const App: React.FC = () => {
             }
           >
             <RefreshCw className={`w-[18px] h-[18px] ${isUpdating || isCheckingUpdate ? 'animate-spin' : ''}`} />
-            {hasUpdateAvailable && !isUpdating && (
-              <span className="absolute -top-1.5 -right-1.5 px-1 rounded-md bg-emerald-400 text-ink-950 text-[9px] font-bold leading-[14px]">
-                novo
-              </span>
-            )}
           </button>
+          {/* Selo fica FORA do botão: o botão tem overflow-hidden (faixa verde) e cortava o texto */}
+          {hasUpdateAvailable && !isUpdating && (
+            <span className="pointer-events-none absolute -top-1.5 -right-2 px-1.5 rounded-full bg-emerald-400 text-ink-950 text-[9px] font-bold leading-[15px] shadow-[0_0_0_2px_var(--color-ink-950)]">
+              novo
+            </span>
+          )}
+          {isUpdating && (
+            <span className="pointer-events-none absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-1 rounded-full bg-ink-800 border border-white/10 text-[9px] font-mono text-emerald-300 leading-[14px]">
+              {updatePercent}%
+            </span>
+          )}
+          </div>
         )}
 
         {/* Baixar App — só no site */}

@@ -265,16 +265,9 @@ function getUserState(userId: string) {
     (m) => m.fromUserId === userId || m.toUserId === userId
   );
   const friends = getUserFriends(userId, db);
-  const activeUsers = getDeduplicatedOnlineUsers(db);
-
-  const allUsersMap = db.users.map((u) => ({
-    id: u.id,
-    name: u.name || (u as any).displayName || (u as any).username || 'Gamer',
-    tag: u.tag || '001',
-    avatarColor: u.avatarColor || '#8b5cf6',
-    avatarUrl: u.avatarUrl,
-    bio: u.bio,
-  }));
+  const visible = getVisibleUserIds(userId, db);
+  const activeUsers = getDeduplicatedOnlineUsers(db).filter((u) => visible.has(u.id));
+  const allUsersMap = getVisibleUserProfiles(visible, db);
 
   return {
     currentUser: {
@@ -296,10 +289,61 @@ function getUserState(userId: string) {
   };
 }
 
+// ===== Privacidade =====
+// Cada pessoa só enxerga quem divide algum servidor com ela ou está na sua lista de amigos
+// (antes a lista de TODOS os usuários e de quem estava online/em qual call ia para todo mundo).
+function getVisibleUserIds(userId: string, db: ReturnType<typeof loadDB>): Set<string> {
+  const visible = new Set<string>([userId]);
+  for (const server of db.servers) {
+    if (server.members.includes(userId)) server.members.forEach((m) => visible.add(m));
+  }
+  for (const f of db.friendships) {
+    if (f.fromUserId === userId) visible.add(f.toUserId);
+    if (f.toUserId === userId) visible.add(f.fromUserId);
+  }
+  return visible;
+}
+
+function getVisibleUserProfiles(visible: Set<string>, db: ReturnType<typeof loadDB>) {
+  return db.users
+    .filter((u) => visible.has(u.id))
+    .map((u) => ({
+      id: u.id,
+      name: u.name || (u as any).displayName || (u as any).username || 'Gamer',
+      tag: u.tag || '001',
+      avatarColor: u.avatarColor || '#8b5cf6',
+      avatarUrl: u.avatarUrl,
+      bio: u.bio,
+    }));
+}
+
+/** Envia a cada conectado a lista filtrada de quem está online e os perfis que ele pode ver. */
 function broadcastOnlineList() {
   const db = loadDB();
   const activeUsers = getDeduplicatedOnlineUsers(db);
-  io.emit('online:list', activeUsers);
+  const cache = new Map<string, Set<string>>();
+  for (const [sId, sSession] of onlineSessions.entries()) {
+    let visible = cache.get(sSession.userId);
+    if (!visible) {
+      visible = getVisibleUserIds(sSession.userId, db);
+      cache.set(sSession.userId, visible);
+    }
+    const v = visible;
+    io.to(sId).emit('online:list', activeUsers.filter((u) => v.has(u.id)));
+    io.to(sId).emit('users:visible', getVisibleUserProfiles(v, db));
+  }
+}
+
+/** Estado de sala de vídeo/música só vai para os membros do servidor dono do canal. */
+function emitMediaState(state: MediaRoomState, exceptSocketId?: string) {
+  const db = loadDB();
+  const server = db.servers.find((sv) => sv.channels.some((c) => c.id === state.channelId));
+  if (!server) return;
+  for (const [sId, sSession] of onlineSessions.entries()) {
+    if (sId !== exceptSocketId && server.members.includes(sSession.userId)) {
+      io.to(sId).emit('media:state-updated', state);
+    }
+  }
 }
 
 function updateUserFriends(userId: string) {
@@ -819,6 +863,8 @@ io.on('connection', (socket: Socket) => {
     saveDB(db);
 
     socket.emit('server:joined', server);
+    broadcastServerUpdated(server);
+    broadcastOnlineList();
     callback?.({ success: true, server });
   });
 
@@ -912,6 +958,8 @@ io.on('connection', (socket: Socket) => {
 
       // Notificar quem aceitou com o novo servidor
       socket.emit('server:joined', server);
+      broadcastServerUpdated(server);
+      broadcastOnlineList();
 
       // Atualizar a mensagem de DM para ambos os usuários
       socket.emit('dm:invite-updated', { messageId, status: 'accepted' });
@@ -1140,6 +1188,7 @@ io.on('connection', (socket: Socket) => {
     }
 
     broadcastServerUpdated(server);
+    broadcastOnlineList();
     callback?.({ success: true, server });
   });
 
@@ -1163,6 +1212,7 @@ io.on('connection', (socket: Socket) => {
     saveDB(db);
     socket.emit('server:left', { serverId });
     broadcastServerUpdated(server);
+    broadcastOnlineList();
     callback?.({ success: true });
   });
 
@@ -1180,13 +1230,17 @@ io.on('connection', (socket: Socket) => {
       return callback?.({ success: false, error: 'Apenas o dono pode excluir o servidor.' });
     }
 
+    const formerMembers = [...server.members];
     db.servers.splice(sIndex, 1);
     db.messages = db.messages.filter((m) => m.serverId !== serverId);
     saveDB(db);
 
-    for (const [sId] of onlineSessions.entries()) {
-      io.to(sId).emit('server:deleted', { serverId });
+    for (const [sId, sSession] of onlineSessions.entries()) {
+      if (formerMembers.includes(sSession.userId)) {
+        io.to(sId).emit('server:deleted', { serverId });
+      }
     }
+    broadcastOnlineList();
     callback?.({ success: true });
   });
 
@@ -1244,6 +1298,7 @@ io.on('connection', (socket: Socket) => {
         saveDB(db);
         updateUserFriends(session.userId);
         updateUserFriends(targetUser.id);
+        broadcastOnlineList();
         return callback?.({ success: true, message: 'Pedido de amizade aceito!' });
       }
       return callback?.({ success: false, error: 'Pedido já enviado anteriormente.' });
@@ -1262,6 +1317,7 @@ io.on('connection', (socket: Socket) => {
 
     updateUserFriends(session.userId);
     updateUserFriends(targetUser.id);
+    broadcastOnlineList();
 
     const targetDisplayName = targetUser.name || (targetUser as any).displayName || 'amigo';
     callback?.({ success: true, message: `Pedido de amizade enviado para ${targetDisplayName}#${targetUser.tag}!` });
@@ -1282,6 +1338,7 @@ io.on('connection', (socket: Socket) => {
 
     updateUserFriends(friendship.fromUserId);
     updateUserFriends(friendship.toUserId);
+    broadcastOnlineList();
 
     callback?.({ success: true });
   });
@@ -1299,6 +1356,7 @@ io.on('connection', (socket: Socket) => {
 
     updateUserFriends(removed.fromUserId);
     updateUserFriends(removed.toUserId);
+    broadcastOnlineList();
 
     callback?.({ success: true });
   });
@@ -1538,7 +1596,7 @@ io.on('connection', (socket: Socket) => {
     if (!state.listeners.includes(session.userId)) {
       state.listeners.push(session.userId);
     }
-    io.emit('media:state-updated', state);
+    emitMediaState(state);
   });
 
   socket.on('media:leave-room', ({ channelId }: { channelId: string }) => {
@@ -1561,7 +1619,7 @@ io.on('connection', (socket: Socket) => {
           state.skipVotes = [];
         }
       }
-      io.emit('media:state-updated', state);
+      emitMediaState(state);
     }
   });
 
@@ -1652,7 +1710,7 @@ io.on('connection', (socket: Socket) => {
       }
     }
 
-    io.emit('media:state-updated', state);
+    emitMediaState(state);
     callback?.({ success: true, state, voted: !alreadyVoted });
   });
 
@@ -1730,7 +1788,7 @@ io.on('connection', (socket: Socket) => {
     }
 
     // Transmite o novo estado para todos os usuários conectados no canal
-    io.emit('media:state-updated', state);
+    emitMediaState(state);
 
     // Também envia uma mensagem no chat do canal avisando da adição
     const targetChannel = db.servers.flatMap((s) => s.channels).find((c) => c.id === channelId);
@@ -1819,7 +1877,7 @@ io.on('connection', (socket: Socket) => {
       (state as any).actionSeq = Date.now();
     }
 
-    io.emit('media:state-updated', state);
+    emitMediaState(state);
   });
 
   // Heartbeat contínuo enviado pelo dono do vídeo atual para manter o tempo e play/pause de todo mundo 100% sincronizado
@@ -1845,7 +1903,7 @@ io.on('connection', (socket: Socket) => {
     state.updatedAt = Date.now();
 
     // Envia para todos os espectadores exceto o próprio dono que enviou o heartbeat
-    socket.broadcast.emit('media:state-updated', state);
+    emitMediaState(state, socket.id);
   });
 
   socket.on('disconnect', () => {
@@ -1871,7 +1929,7 @@ io.on('connection', (socket: Socket) => {
               mState.skipVotes = [];
             }
           }
-          io.emit('media:state-updated', mState);
+          emitMediaState(mState);
         }
       }
     }

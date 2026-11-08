@@ -332,14 +332,14 @@ app.get('/download/windows', (req, res) => {
     return res.download(exePath, 'Jolt-Windows.exe');
   }
   // Se estiver no Render (que só roda a pasta server), redireciona para a release pública no GitHub
-  res.redirect('https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe');
+  res.redirect('https://github.com/ErickSantana10/jolt/releases/latest/download/Jolt-Windows.exe');
 });
 
 app.get('/api/version', (_req, res) => {
   res.json({
     name: 'Jolt',
     version: '1.2.0',
-    downloadUrl: 'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe',
+    downloadUrl: 'https://github.com/ErickSantana10/jolt/releases/latest/download/Jolt-Windows.exe',
     changelog: [
       'Correção completa do áudio da transmissão de tela (WASAPI Loopback + elemento de áudio dedicado)',
       'Novo nome e identidade visual: Jolt',

@@ -32,3 +32,56 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(168, 85, 247, 0.5);
 }
+
+/* Botão "Atualizar App" com versão nova disponível: faixa verde passando + brilho pulsante */
+.jolt-update-shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  animation: jolt-update-glow 2.4s ease-in-out infinite;
+}
+
+.jolt-update-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(52, 211, 153, 0.15) 40%,
+    rgba(110, 231, 183, 0.7) 50%,
+    rgba(52, 211, 153, 0.15) 60%,
+    transparent 75%
+  );
+  transform: translateX(-120%);
+  animation: jolt-update-sweep 2.4s ease-in-out infinite;
+}
+
+@keyframes jolt-update-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  55%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes jolt-update-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px 2px rgba(52, 211, 153, 0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jolt-update-shimmer,
+  .jolt-update-shimmer::after {
+    animation: none;
+  }
+}

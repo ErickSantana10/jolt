@@ -1,4 +1,6 @@
-export const APP_VERSION = '2.0.0';
+// Versão única: vem do client/package.json (é ela que a GitHub Action usa para criar a release)
+import { version } from '../package.json';
+export const APP_VERSION: string = version;
 
 export type StreamQualityPreset = 'potato' | 'balanced' | 'gamer';
 

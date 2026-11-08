@@ -55,8 +55,12 @@ interface RemoteStreamItem {
   updatedAt?: number;
 }
 
+// Sempre aponta para o .exe da release mais recente (publicada pela GitHub Action)
 const DESKTOP_APP_DOWNLOAD_URL =
-  'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe';
+  'https://github.com/ErickSantana10/jolt/releases/latest/download/Jolt-Windows.exe';
+const GITHUB_LATEST_RELEASE_API = 'https://api.github.com/repos/ErickSantana10/jolt/releases/latest';
+// A API pública do GitHub permite 60 consultas/hora por IP: checar a cada 15 min é seguro
+const UPDATE_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -118,6 +122,7 @@ export const App: React.FC = () => {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [latestGitHubVersion, setLatestGitHubVersion] = useState<string>(APP_VERSION);
   const [hasUpdateAvailable, setHasUpdateAvailable] = useState(false);
+  const [latestDownloadUrl, setLatestDownloadUrl] = useState<string>(DESKTOP_APP_DOWNLOAD_URL);
   const [isUpdating, setIsUpdating] = useState(false);
   const [updatePercent, setUpdatePercent] = useState(0);
   const [updateTransferredMB, setUpdateTransferredMB] = useState('0.0');
@@ -188,20 +193,25 @@ export const App: React.FC = () => {
     return false;
   };
 
-  const fetchLatestGitHubVersion = async (): Promise<string> => {
+  /**
+   * Consulta a última release publicada no GitHub (não o package.json do main): assim o app só
+   * avisa de atualização quando o .exe novo já existe para download — antes, ao subir a versão no
+   * main, o botão baixava o .exe antigo e ficava pedindo atualização em loop.
+   */
+  const fetchLatestRelease = async (): Promise<{ version: string; downloadUrl: string } | null> => {
     try {
-      const res = await fetch(
-        `https://raw.githubusercontent.com/ErickSantana10/jolt/main/client/package.json?t=${Date.now()}`,
-        { cache: 'no-store' }
-      );
-      if (res.ok) {
-        const pkg = await res.json();
-        if (pkg?.version && typeof pkg.version === 'string') {
-          return pkg.version.trim();
-        }
-      }
-    } catch {}
-    return APP_VERSION;
+      const res = await fetch(GITHUB_LATEST_RELEASE_API, {
+        cache: 'no-store',
+        headers: { Accept: 'application/vnd.github+json' },
+      });
+      if (!res.ok) return null;
+      const release = await res.json();
+      const asset = (release?.assets || []).find((a: any) => a?.name === 'Jolt-Windows.exe');
+      if (typeof release?.tag_name !== 'string' || !asset?.browser_download_url) return null;
+      return { version: release.tag_name.replace(/^v/i, '').trim(), downloadUrl: asset.browser_download_url };
+    } catch {
+      return null;
+    }
   };
 
   const handleInstallAppUpdate = async () => {
@@ -209,7 +219,7 @@ export const App: React.FC = () => {
     if (isElectron && window.electronAPI?.installUpdate) {
       setIsUpdating(true);
       setUpdatePercent(1);
-      const res = await window.electronAPI.installUpdate(DESKTOP_APP_DOWNLOAD_URL);
+      const res = await window.electronAPI.installUpdate(latestDownloadUrl);
       if (!res.success) {
         setIsUpdating(false);
         setUpdateError(res.error || 'Erro ao baixar atualização.');
@@ -226,11 +236,16 @@ export const App: React.FC = () => {
     if (isUpdating) return;
 
     setIsCheckingUpdate(true);
-    const remoteVer = await fetchLatestGitHubVersion();
-    setLatestGitHubVersion(remoteVer);
-    const newer = compareSemver(remoteVer, APP_VERSION);
-    setHasUpdateAvailable(newer);
+    const latest = await fetchLatestRelease();
     setIsCheckingUpdate(false);
+    if (!latest) {
+      setUpdateError('Não foi possível consultar o GitHub agora. Tente novamente em alguns minutos.');
+      return;
+    }
+    setLatestGitHubVersion(latest.version);
+    setLatestDownloadUrl(latest.downloadUrl);
+    const newer = compareSemver(latest.version, APP_VERSION);
+    setHasUpdateAvailable(newer);
 
     // Se houver uma versão mais nova no GitHub, já inicia o download e substituição automática!
     if (newer) {
@@ -239,15 +254,18 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // Atualização automática só existe no app desktop; o site já recebe a versão nova a cada deploy
+    if (!window.electronAPI?.isElectron) return;
     let mounted = true;
     const checkBg = async () => {
-      const remoteVer = await fetchLatestGitHubVersion();
-      if (!mounted) return;
-      setLatestGitHubVersion(remoteVer);
-      setHasUpdateAvailable(compareSemver(remoteVer, APP_VERSION));
+      const latest = await fetchLatestRelease();
+      if (!mounted || !latest) return;
+      setLatestGitHubVersion(latest.version);
+      setLatestDownloadUrl(latest.downloadUrl);
+      setHasUpdateAvailable(compareSemver(latest.version, APP_VERSION));
     };
     checkBg();
-    const timer = window.setInterval(checkBg, 60000);
+    const timer = window.setInterval(checkBg, UPDATE_CHECK_INTERVAL_MS);
     return () => {
       mounted = false;
       clearInterval(timer);
@@ -1399,15 +1417,20 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {/* Botão Atualizar App (Verifica no GitHub e baixa automaticamente se houver versão nova!) */}
+          {/* Botão Atualizar App — só no desktop (no site não faz sentido: cada deploy já atualiza) */}
+          {isElectron && (
           <button
             onClick={handleCheckAndAutoUpdate}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl border text-xs font-extrabold tracking-wide shadow-sm transition cursor-pointer ${
               hasUpdateAvailable
-                ? 'bg-gradient-to-r from-emerald-600/30 to-violet-600/30 hover:from-emerald-500/40 hover:to-violet-500/40 border-emerald-400/60 text-emerald-200 shadow-emerald-500/20'
+                ? 'jolt-update-shimmer bg-gradient-to-r from-emerald-600/30 to-violet-600/30 hover:from-emerald-500/40 hover:to-violet-500/40 border-emerald-400/60 text-emerald-200 shadow-emerald-500/20'
                 : 'bg-[#170f2b] hover:bg-violet-600/25 border-violet-500/35 text-violet-200 hover:text-white'
             }`}
-            title="Verificar no GitHub se há nova versão e atualizar automaticamente"
+            title={
+              hasUpdateAvailable
+                ? `Nova versão v${latestGitHubVersion} disponível — clique para atualizar`
+                : 'Verificar no GitHub se há nova versão e atualizar automaticamente'
+            }
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${
@@ -1424,6 +1447,7 @@ export const App: React.FC = () => {
                 : 'Atualizar App'}
             </span>
           </button>
+          )}
 
           {/* Botão Baixar App para Windows (.exe) — Visível no Site */}
           {!isElectron && (
@@ -1659,7 +1683,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Modal de Atualização Automática do App (Atualizar App) */}
-      {isUpdateModalOpen && (
+      {isElectron && isUpdateModalOpen && (
         <div
           className="fixed inset-0 z-[95] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
           onClick={() => {
@@ -1709,15 +1733,15 @@ export const App: React.FC = () => {
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Login automático e salvamento permanente de senha no PC</span>
+                <span>Transmissão de tela mais estável (sem tela preta e sem travar ao reiniciar a live)</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Áudio de Transmissão de Tela corrigido (sem cancelamento de loopback + palco expandido)</span>
+                <span>Login e senha salvos com criptografia no PC</span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <span>Novo ícone inspirado no Jolteon e atualizador anti-bloqueio (Zero EBUSY)</span>
+                <span>Atualizador baixa sempre a última versão publicada no GitHub</span>
               </div>
             </div>
 

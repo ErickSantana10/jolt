@@ -528,12 +528,12 @@ function setupScreenShareAndPermissions() {
   // 6. Auto-Atualizador com 1 clique (Zero EBUSY): baixa em pasta dedicada, substitui via script pós-fechamento se bloqueado e reinicia!
   ipcMain.handle('app:install-update', async (_event, { downloadUrl }) => {
     try {
-      const DEFAULT_UPDATE_URL = 'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe';
+      const DEFAULT_UPDATE_URL = 'https://github.com/ErickSantana10/jolt/releases/latest/download/Jolt-Windows.exe';
       // O executável baixado é executado em seguida: só aceita releases do repositório oficial.
       // Sem isso, qualquer script na página (ex.: um XSS) poderia baixar e rodar um .exe qualquer.
       const isTrustedUpdateUrl =
         typeof downloadUrl === 'string' &&
-        downloadUrl.startsWith('https://github.com/ErickSantana10/jolt/releases/download/');
+        downloadUrl.startsWith('https://github.com/ErickSantana10/jolt/releases/');
       if (downloadUrl && !isTrustedUpdateUrl) {
         return { success: false, error: 'URL de atualização não confiável.' };
       }

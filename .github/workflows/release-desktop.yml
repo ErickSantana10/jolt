@@ -1,0 +1,86 @@
+# Gera o Jolt-Windows.exe e publica uma release no GitHub sempre que a versão
+# em client/package.json muda no main. O botão "Atualizar App" do desktop
+# consulta a última release, então basta subir a versão e dar push.
+name: Release Desktop (Windows)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'client/**'
+      - '.github/workflows/release-desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-desktop
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ler versão e checar se a release já existe
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = "v$version"
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag já existe; nada a publicar."
+            "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+          }
+          exit 0
+
+      - uses: actions/setup-node@v4
+        if: steps.version.outputs.exists == 'false'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Instalar dependências
+        if: steps.version.outputs.exists == 'false'
+        run: npm ci
+
+      - name: Compilar helper nativo de áudio (C#)
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          & "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /optimize+ /platform:x64 `
+            /out:"electron\jolt-audio-capture.exe" "electron\jolt-audio-capture.cs"
+          if (!(Test-Path electron\jolt-audio-capture.exe)) { throw "Falha ao compilar jolt-audio-capture.exe" }
+
+      - name: Build web + executável portátil
+        if: steps.version.outputs.exists == 'false'
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm run build
+          npx electron-builder --win portable --publish never
+          Copy-Item release\Jolt-Windows.exe release\Janjacord-Windows.exe
+
+      - name: Publicar release
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          gh release create $tag release\Jolt-Windows.exe release\Janjacord-Windows.exe `
+            --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA `
+            --title "Jolt $tag" --notes "Versão $tag do Jolt para Windows. Atualize pelo botão 'Atualizar App'." --latest
+          # Compatibilidade: apps até a v2.0.0 baixam sempre da release v1.0.0
+          gh release upload v1.0.0 release\Jolt-Windows.exe release\Janjacord-Windows.exe `
+            --repo $env:GITHUB_REPOSITORY --clobber

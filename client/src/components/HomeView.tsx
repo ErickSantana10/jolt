@@ -42,7 +42,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   onSendFriendRequest,
   onAcceptFriend,
   onRemoveFriend,
-  downloadUrl = 'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe',
+  downloadUrl = 'https://github.com/ErickSantana10/jolt/releases/latest/download/Jolt-Windows.exe',
 }) => {
   const [tab, setTab] = useState<'online' | 'all' | 'pending' | 'add'>('online');
   const [addUsernameInput, setAddUsernameInput] = useState('');

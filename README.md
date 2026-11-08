@@ -7,12 +7,12 @@
 **Plataforma moderna de comunicação em tempo real: Voz Cristalina, Transmissão de Tela em até 1080p 60 FPS com Áudio Nativo e Salas de Cinema Sincronizadas.**
 
 [![Versão](https://img.shields.io/badge/versão-v1.3.0-8b5cf6?style=for-the-badge)](https://github.com/ErickSantana10/jolt/releases)
-[![Windows Desktop](https://img.shields.io/badge/Windows-Portátil_.EXE-d946ef?style=for-the-badge&logo=windows)](https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe)
+[![Windows Desktop](https://img.shields.io/badge/Windows-Portátil_.EXE-d946ef?style=for-the-badge&logo=windows)](https://github.com/ErickSantana10/jolt/releases/latest/download/Jolt-Windows.exe)
 [![WebRTC](https://img.shields.io/badge/WebRTC-P2P_%2B_TURN-10b981?style=for-the-badge)](https://webrtc.org/)
 [![Supabase](https://img.shields.io/badge/PostgreSQL-Supabase_Cloud-3ecf8e?style=for-the-badge&logo=supabase)](https://supabase.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-React_19_%2B_Node-3178c6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 
-[📥 **Baixar Jolt para Windows (.exe)**](https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe) • [🌐 **Acessar Versão Web**](https://jolt-ericksantana10.vercel.app)
+[📥 **Baixar Jolt para Windows (.exe)**](https://github.com/ErickSantana10/jolt/releases/latest/download/Jolt-Windows.exe) • [🌐 **Acessar Versão Web**](https://jolt-ericksantana10.vercel.app)
 
 </div>
 
@@ -150,7 +150,7 @@ npm run electron:dist
 
 Não quer compilar o código? Baixe o executável portátil pronto para uso:
 
-👉 **[Baixar Jolt-Windows.exe (Última Versão)](https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe)**
+👉 **[Baixar Jolt-Windows.exe (Última Versão)](https://github.com/ErickSantana10/jolt/releases/latest/download/Jolt-Windows.exe)**
 
 ---
 

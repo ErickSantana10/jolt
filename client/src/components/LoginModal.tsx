@@ -37,7 +37,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   initialRememberMe = true,
   isAutoReconnecting = false,
   onCancelAutoReconnect,
-  downloadUrl = 'https://github.com/ErickSantana10/jolt/releases/download/v1.0.0/Jolt-Windows.exe',
+  downloadUrl = 'https://github.com/ErickSantana10/jolt/releases/latest/download/Jolt-Windows.exe',
 }) => {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState(initialName);

@@ -573,56 +573,92 @@ function setupScreenShareAndPermissions() {
       // Atualiza também o atalho na Área de Trabalho apontando para o executável atualizado
       ensureDesktopShortcut(finalExePath);
 
-      // Usa WMI (Win32_Process.Create) para criar o processo PowerShell fora da árvore/Job Object do wrapper NSIS portátil!
-      // Assim, quando o Jolt fecha, o Windows NÃO mata o script de atualização!
+      // O .exe portátil roda dentro de um Job Object do wrapper NSIS: tudo que o Jolt cria morre quando ele fecha.
+      // Por isso o script de troca é criado via WMI (Win32_Process.Create), fora do Job Object.
+      // BUG anterior: o app fechava 900ms depois de chamar o PowerShell que faz a chamada WMI; esse PowerShell
+      // ainda estava carregando e morria junto com o app, então o script nunca rodava (o app só fechava).
+      // Agora o script grava um arquivo-marcador assim que inicia e o app só fecha depois de ver o marcador.
       const psScriptPath = path.join(PERSISTENT_DATA_DIR, 'jolt-replace-update.ps1');
-      const escapedTemp = tempDownloadPath.replace(/'/g, "''");
-      const escapedFinal = finalExePath.replace(/'/g, "''");
+      const markerPath = path.join(PERSISTENT_DATA_DIR, 'jolt-update-started.txt');
+      const logPath = path.join(PERSISTENT_DATA_DIR, 'jolt-update.log');
+      const q = (value) => `'${String(value).replace(/'/g, "''")}'`;
 
       const psScript = [
-        '$ErrorActionPreference = "SilentlyContinue"',
-        `\$tempFile = '${escapedTemp}'`,
-        `\$targetFile = '${escapedFinal}'`,
-        'Start-Sleep -Milliseconds 600',
-        'Get-Process | Where-Object { $_.ProcessName -like "Jolt*" } | Stop-Process -Force -ErrorAction SilentlyContinue',
-        'Start-Sleep -Milliseconds 900',
-        'for ($i = 0; $i -lt 35; $i++) {',
+        "$ErrorActionPreference = 'SilentlyContinue'",
+        `$tempFile = ${q(tempDownloadPath)}`,
+        `$targetFile = ${q(finalExePath)}`,
+        `$log = ${q(logPath)}`,
+        'function Log($m) { Add-Content -LiteralPath $log -Value ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $m) }',
+        `Set-Content -LiteralPath ${q(markerPath)} -Value 'started'`,
+        'Log "atualizador iniciado: $tempFile -> $targetFile"',
+        // Espera o Jolt fechar sozinho (até 10s) e só então força o encerramento do que restou
+        '$deadline = (Get-Date).AddSeconds(10)',
+        "while ((Get-Process -Name 'Jolt','Jolt-Windows') -and ((Get-Date) -lt $deadline)) { Start-Sleep -Milliseconds 300 }",
+        "Get-Process | Where-Object { $_.ProcessName -like 'Jolt*' } | Stop-Process -Force",
+        'Start-Sleep -Milliseconds 700',
+        '$ok = $false',
+        'for ($i = 0; ($i -lt 40) -and (-not $ok); $i++) {',
         '  try {',
-        '    if (Test-Path "$targetFile.old") { Remove-Item -Path "$targetFile.old" -Force -ErrorAction SilentlyContinue }',
-        '    Copy-Item -Path $tempFile -Destination $targetFile -Force -ErrorAction Stop',
-        '    if ($?) { break }',
+        '    Copy-Item -LiteralPath $tempFile -Destination $targetFile -Force -ErrorAction Stop',
+        '    $ok = $true',
         '  } catch {',
-        '    try {',
-        '      Move-Item -Path $targetFile -Destination "$targetFile.old" -Force -ErrorAction Stop',
-        '      Copy-Item -Path $tempFile -Destination $targetFile -Force -ErrorAction Stop',
-        '      if ($?) { break }',
-        '    } catch {}',
+        '    Log ("tentativa {0} falhou: {1}" -f $i, $_.Exception.Message)',
+        '    Start-Sleep -Milliseconds 500',
         '  }',
-        '  Start-Sleep -Milliseconds 400',
         '}',
-        'if (Test-Path $targetFile) {',
+        'if ($ok) {',
+        '  Log "exe substituido com sucesso"',
         '  Start-Process -FilePath $targetFile',
-        '  Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue',
+        '  Start-Sleep -Seconds 2',
+        '  Remove-Item -LiteralPath $tempFile -Force',
         '} else {',
+        // Nunca reabre a versão antiga: se não deu para substituir, roda a versão nova baixada
+        '  Log "nao foi possivel substituir; abrindo a versao nova direto da pasta de atualizacao"',
         '  Start-Process -FilePath $tempFile',
         '}',
       ].join('\r\n');
 
-      fs.writeFileSync(psScriptPath, psScript, 'utf-8');
-      const escapedPsPath = psScriptPath.replace(/'/g, "''");
-      const wmiLauncherCmd = `Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "${escapedPsPath}"' }`;
+      try {
+        fs.unlinkSync(markerPath);
+      } catch {}
+      // BOM UTF-8: o PowerShell 5.1 lê scripts sem BOM como ANSI e quebraria caminhos com acento
+      fs.writeFileSync(psScriptPath, '\ufeff' + psScript, 'utf-8');
+
+      const wmiLauncherCmd = `Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "${psScriptPath.replace(/'/g, "''")}"' } | Out-Null`;
 
       spawn(
         'powershell.exe',
         ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', wmiLauncherCmd],
         {
-          detached: true,
           windowsHide: true,
           stdio: 'ignore',
         }
       );
 
-      setTimeout(() => app.quit(), 900);
+      // Aguarda o script confirmar que está rodando fora do Job Object (até 20s) antes de fechar o app
+      const started = await new Promise((resolve) => {
+        const begin = Date.now();
+        const timer = setInterval(() => {
+          if (fs.existsSync(markerPath)) {
+            clearInterval(timer);
+            resolve(true);
+          } else if (Date.now() - begin > 20000) {
+            clearInterval(timer);
+            resolve(false);
+          }
+        }, 200);
+      });
+
+      if (!started) {
+        return {
+          success: false,
+          error: 'Não foi possível iniciar o instalador da atualização. Tente novamente ou baixe o .exe pelo site.',
+        };
+      }
+
+      setTimeout(() => app.quit(), 300);
+      // Garante o encerramento mesmo se algum handler segurar o quit
+      setTimeout(() => app.exit(0), 4000);
       return { success: true };
     } catch (err) {
       console.error('[Updater] Erro ao atualizar aplicativo:', err);
